@@ -1,11 +1,13 @@
 # clean up manga download from https://dlraw.to/
 import os
 import argparse
+import shutil
+from tqdm import tqdm
 from PIL import Image
 
 def trim_image(image, target_color):
     # Create a mask by comparing pixel colors with the desired color
-    mask = image.point(lambda p: p != target_color and 255)
+    mask = image.point(lambda p: abs(p - target_color) > 6 and 255)
     
     w, h = mask.size
     halfmark = mask.crop((0,0,w,int(h/2)))
@@ -22,7 +24,7 @@ def trim_image(image, target_color):
 def cut_or_copy_images(input_folder, output_folder):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-    for filename in os.listdir(input_folder):
+    for filename in tqdm(os.listdir(input_folder)):
         input_path = os.path.join(input_folder, filename)
         output_path = os.path.join(output_folder, filename)
 
@@ -51,4 +53,8 @@ if __name__ == "__main__":
     parser.add_argument("output_folder", help="Path to the output folder")
     args = parser.parse_args()
 
-    cut_or_copy_images(args.input_folder, args.output_folder)
+    output_folder = os.path.abspath(args.output_folder)
+    input_folder = os.path.abspath(args.input_folder)
+
+    cut_or_copy_images(input_folder, output_folder)
+    shutil.make_archive(os.path.basename(output_folder), 'zip', output_folder)
