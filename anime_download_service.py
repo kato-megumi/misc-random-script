@@ -14,14 +14,14 @@ import os
 import yaml
 
 API_KEY = "------------------------------"
-PUSHBULLET_API_URL = 'https://api.pushbullet.com/v2/pushes'
+PUSHBULLET_API_URL = "https://api.pushbullet.com/v2/pushes"
 RSS_FEED_URL = "https://subsplease.org/rss/?r=1080"
 PUSHBULLET_CHECK_INTERVAL = 5
 RSS_CHECK_INTERVAL = 10
-DOWNLOAD_FOLDER = '/media/pi/Drive/Anime'
-DRY_RUN = False
-DEBUG = False
-PATTERN = r'\[(.*?)\] (.*?) - (\d+(?:\.\d+)?)v?(\d*) \(1080p\) \[.*?\]\.mkv'
+DOWNLOAD_FOLDER = "/media/pi/Drive/Anime"
+DRY_RUN = "dryrun" in os.environ
+DEBUG = "debug" in os.environ
+PATTERN = r"\[(.*?)\] (.*?) - (\d+(?:\.\d+)?)v?(\d*) \(1080p\) \[.*?\]\.mkv"
 
 seen_entry_ids = set()
 anime_list = dict()
@@ -29,36 +29,43 @@ anime_list = dict()
 
 def debug(*args, **kwargs):
     if DEBUG:
-        print("DEBUG: ",end="")
+        print("DEBUG: ", end="")
         print(*args, **kwargs)
 
 
 def info(*args, **kwargs):
-    print("INFO: ",end="")
+    print("INFO: ", end="")
     print(*args, **kwargs)
 
 
 def check_for_push(pb_last_success):
     def print_ratelimit(headers):
-        if 'X-RateLimit-Remaining' in headers:
-            remain = headers['X-RateLimit-Remaining']
-            total = headers['X-RateLimit-Limit']
+        if "X-RateLimit-Remaining" in headers:
+            remain = headers["X-RateLimit-Remaining"]
+            total = headers["X-RateLimit-Limit"]
             until = datetime.datetime.fromtimestamp(
-                float(headers['X-RateLimit-Reset'])).strftime('%Y-%m-%d %H:%M:%S')
+                float(headers["X-RateLimit-Reset"])
+            ).strftime("%Y-%m-%d %H:%M:%S")
             debug(f"Remain {remain}/{total} units, until {until}")
-            
+
     def print_last_success():
-        t = datetime.datetime.fromtimestamp(pb_last_success).strftime('%Y-%m-%d %H:%M:%S.%f')
+        t = datetime.datetime.fromtimestamp(pb_last_success).strftime(
+            "%Y-%m-%d %H:%M:%S.%f"
+        )
         debug(f"Find push after {t}")
 
     headers = {
-        'Access-Token': API_KEY,
+        "Access-Token": API_KEY,
     }
 
     current_time = time.time()
     try:
-        response = requests.get(PUSHBULLET_API_URL, headers=headers, params={
-                                "modified_after": str(int(pb_last_success))}, timeout=10)
+        response = requests.get(
+            PUSHBULLET_API_URL,
+            headers=headers,
+            params={"modified_after": str(int(pb_last_success))},
+            timeout=10,
+        )
     except requests.exceptions.HTTPError as http_e:
         print_ratelimit(response.headers)
         info("Check for push HTTPError")
@@ -68,10 +75,10 @@ def check_for_push(pb_last_success):
 
     print_last_success()
     if response.status_code == 200:
-        pushes = response.json()['pushes']
+        pushes = response.json()["pushes"]
         for push in pushes:
-            if 'url' in push:
-                link = push['url']
+            if "url" in push:
+                link = push["url"]
                 debug(f"Receive {link}")
                 download_anime(link)
         return current_time
@@ -86,13 +93,13 @@ def check_rss(dry=False):
         info("Check RSS Error")
         return
     for entry in feed.entries:
-        entry_id = entry.get('id', '')
+        entry_id = entry.get("id", "")
         if entry_id not in seen_entry_ids:
             seen_entry_ids.add(entry_id)
             if dry:
                 continue
-            rss_title = entry.get('title', '')
-            link = entry.get('link', '')
+            rss_title = entry.get("title", "")
+            link = entry.get("link", "")
             title, ep = get_title_ep(rss_title)
             info(f"RSS - Title: {title} - Episode: {ep}")
             if title != None and title in anime_list:
@@ -120,10 +127,15 @@ def download_anime(url):
         # Set a maximum wait time (in seconds)
         wait = WebDriverWait(driver, 10)
         # Wait until an Episode appears
-        element = wait.until(EC.presence_of_element_located(
-            (By.CLASS_NAME, "episode-title")))
-        magnet_links = [i.get_attribute("href") for i in driver.find_elements(
-            By.XPATH, "//a[starts-with(@href, 'magnet:')]")]
+        element = wait.until(
+            EC.presence_of_element_located((By.CLASS_NAME, "episode-title"))
+        )
+        magnet_links = [
+            i.get_attribute("href")
+            for i in driver.find_elements(
+                By.XPATH, "//a[starts-with(@href, 'magnet:')]"
+            )
+        ]
         magnet_links = [i for i in magnet_links if "1080p" in unquote(i)]
         anime_title = driver.find_element(By.CLASS_NAME, "entry-title").text
 
@@ -145,8 +157,8 @@ def download_episode(title, link):
 
     download_path = os.path.join(DOWNLOAD_FOLDER, title)
     download_options = {
-        'add_paused': False,
-        'download_location': download_path,
+        "add_paused": False,
+        "download_location": download_path,
     }
 
     _, ep = get_title_ep(unquote(link))
@@ -159,7 +171,7 @@ def download_episode(title, link):
         torrent_id = deluge.core.add_torrent_magnet(link, download_options)
         torrent_exist = False
     except Exception as e:
-        pattern = r'\b([0-9a-fA-F]{40})\b'
+        pattern = r"\b([0-9a-fA-F]{40})\b"
         torrent_id = re.findall(pattern, str(e))[0]
         torrent_exist = True
     if torrent_exist:
@@ -167,32 +179,27 @@ def download_episode(title, link):
 
     deluge.disconnect()
 
+
 def push_notify(noti):
     debug(f"Notify - {noti}")
-    push_data = {
-        'type': 'note',  
-        'title': 'Anime Download Service',
-        'body': noti
-    }
+    push_data = {"type": "note", "title": "Anime Download Service", "body": noti}
 
-    headers = {
-        'Access-Token': API_KEY,
-        'Content-Type': 'application/json'
-    }
+    headers = {"Access-Token": API_KEY, "Content-Type": "application/json"}
     try:
         requests.post(PUSHBULLET_API_URL, headers=headers, json=push_data)
     except Exception as e:
         info("Send push notify fail.")
 
-    
+
 def load_list():
     global anime_list
-    with open(anilist_file_path, 'r') as config_file:
-        anime_list = yaml.load(config_file, Loader=yaml.FullLoader)
-    
+    with open(anilist_file_path, "r") as anilist_file:
+        anime_list = yaml.load(anilist_file, Loader=yaml.FullLoader)
+
+
 def write_list():
-    with open(anilist_file_path, 'w') as config_file:
-        yaml.dump(anime_list, config_file)
+    with open(anilist_file_path, "w") as anilist_file:
+        yaml.dump(anime_list, anilist_file)
 
 
 rss_last_check = time.time()
@@ -200,19 +207,20 @@ pb_last_check = time.time()
 pb_last_success = time.time()
 check_rss(True)
 
-config_folder = os.path.expanduser('~/.config/anime_download_service')
+config_folder = os.path.expanduser("~/.config/anime_download_service")
 os.makedirs(config_folder, exist_ok=True)
-anilist_file_path = os.path.join(config_folder, 'animelist.yaml')
-config_file_path = os.path.join(config_folder, 'animelist.yaml')
+anilist_file_path = os.path.join(config_folder, "animelist.yaml")
+config_file_path = os.path.join(config_folder, "config.yaml")
 
 if os.path.exists(anilist_file_path):
     load_list()
 else:
     write_list()
-if os.path.exists(anilist_file_path):
-    with open(anilist_file_path, 'r') as config_file:
+
+if os.path.exists(config_file_path):
+    with open(config_file_path, "r") as config_file:
         config = yaml.load(config_file, Loader=yaml.FullLoader)
-        API_KEY = config['apikey']
+        API_KEY = config["apikey"]
 else:
     info("config.yaml not found")
     exit()
