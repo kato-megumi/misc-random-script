@@ -21,7 +21,7 @@ RSS_CHECK_INTERVAL = 10
 DOWNLOAD_FOLDER = '/media/pi/Drive/Anime'
 DRY_RUN = False
 DEBUG = False
-PATTERN = r'\[(.*?)\] (.*?) - (\d+) \(1080p\) \[.*?\]\.mkv'
+PATTERN = r'\[(.*?)\] (.*?) - (\d+(?:\.\d+)?)v?(\d*) \(1080p\) \[.*?\]\.mkv'
 
 seen_entry_ids = set()
 anime_list = dict()
@@ -185,13 +185,13 @@ def push_notify(noti):
         info("Send push notify fail.")
 
     
-def load_config():
+def load_list():
     global anime_list
-    with open(config_file_path, 'r') as config_file:
+    with open(anilist_file_path, 'r') as config_file:
         anime_list = yaml.load(config_file, Loader=yaml.FullLoader)
     
-def write_config():
-    with open(config_file_path, 'w') as config_file:
+def write_list():
+    with open(anilist_file_path, 'w') as config_file:
         yaml.dump(anime_list, config_file)
 
 
@@ -202,29 +202,36 @@ check_rss(True)
 
 config_folder = os.path.expanduser('~/.config/anime_download_service')
 os.makedirs(config_folder, exist_ok=True)
+anilist_file_path = os.path.join(config_folder, 'animelist.yaml')
 config_file_path = os.path.join(config_folder, 'animelist.yaml')
 
-if os.path.exists(config_file_path):
-    load_config()
+if os.path.exists(anilist_file_path):
+    load_list()
 else:
-    write_config()
+    write_list()
+if os.path.exists(anilist_file_path):
+    with open(anilist_file_path, 'r') as config_file:
+        config = yaml.load(config_file, Loader=yaml.FullLoader)
+        API_KEY = config['apikey']
+else:
+    info("config.yaml not found")
+    exit()
 
 dirty = False
-    
 
 while True:
     current_time = time.time()
     if current_time - pb_last_check >= PUSHBULLET_CHECK_INTERVAL:
-        load_config()
+        load_list()
         pb_last_success = check_for_push(pb_last_success)
         pb_last_check = current_time
         if dirty:
-            write_config()
+            write_list()
             dirty = False
 
     current_time = time.time()
     if current_time - rss_last_check >= RSS_CHECK_INTERVAL:
-        load_config()
+        load_list()
         check_rss()
         rss_last_check = current_time
 
