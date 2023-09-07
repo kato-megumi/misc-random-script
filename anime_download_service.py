@@ -26,6 +26,10 @@ PATTERN = r"\[(.*?)\] (.*?) - (\d+(?:\.\d+)?)v?(\d*) \(1080p\) \[.*?\]\.mkv"
 seen_entry_ids = set()
 anime_list = dict()
 
+### Todo
+# deal with batch 
+# multiple mode( move only, delete, stop download in future, only batch)
+# deal with version
 
 def debug(*args, **kwargs):
     if DEBUG:
@@ -115,7 +119,7 @@ def get_title_ep(name):
         return None, None
 
 
-def download_anime(url):
+def download_anime(url, batch=False):
     global dirty
     if "https://subsplease.org/shows" not in url:
         return
@@ -143,14 +147,21 @@ def download_anime(url):
         return  # or not? remove if in list?
     anime_list[anime_title] = {"link": url}
     dirty = True
+    
     push_notify(f"Download anime: {anime_title}")
     for link in magnet_links:
-        download_episode(anime_title, link)
+        _, ep = get_title_ep(unquote(link))
+        if batch:
+            
+            if ep != None:
+                info(f"Download {anime_title} Episode {ep}")
+                download_episode(anime_title, link)
+        elif batch:
+            if "[Batch]"
+            
 
 
 def download_episode(title, link):
-    if title not in anime_list:
-        return
 
     deluge = deluge_client.DelugeRPCClient("mypi", 58846, "kotori", "123456")
     deluge.connect()
@@ -160,9 +171,6 @@ def download_episode(title, link):
         "add_paused": False,
         "download_location": download_path,
     }
-
-    _, ep = get_title_ep(unquote(link))
-    info(f"Download {title} Episode {ep}")
 
     if DRY_RUN:
         return
