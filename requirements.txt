@@ -1,0 +1,5 @@
+selenium
+deluge_client
+feedparser
+requests
+pyyaml

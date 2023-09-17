@@ -3,3 +3,6 @@ tmp/
 *.png
 *.onnx
 onnxModel/
+.vscode/
+*.log
+*.out
