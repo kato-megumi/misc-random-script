@@ -103,6 +103,9 @@ def push_handle(push):
         if "stop" in push["body"]:
             download_anime(link, stop=True)
             return
+        if "force" in push["body"]:
+            download_anime(link, force=True)
+            return
 
     download_anime(link)
 
@@ -166,7 +169,7 @@ def get_anime_info(url):
     return anime_title.replace("–",'-'), magnet_links
 
 
-def download_anime(url, batch=False, stop=False, move=False):
+def download_anime(url, batch=False, stop=False, move=False, force=False):
     global dirty
 
     debug(f"download_anime: {url=}, {batch=} {stop=} {move=}")
@@ -175,7 +178,8 @@ def download_anime(url, batch=False, stop=False, move=False):
         if stop:
             del anime_list[anime_title]
             dirty = True
-        return
+        if not force:
+            return
     anime_list[anime_title] = {"link": url}
     dirty = True
 
@@ -222,7 +226,7 @@ def download_torrents(title, links, move=False):
     if not move:
         for link in links:
             if magnet_to_hash(link) not in torrents_dict:
-                _, ep = get_anime_info(link)
+                _, ep = get_title_ep(link)
                 info(f"Download {title} Episode {ep}")
                 deluge.core.add_torrent_magnet(link, download_options)
     deluge.disconnect()
