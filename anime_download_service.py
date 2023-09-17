@@ -25,9 +25,6 @@ DEBUG = "debug" in os.environ
 PATTERN = r"\[(.*?)\] (.*?) - (\d+(?:\.\d+)?)v?(\d*) \(1080p\) \[.*?\]\.mkv"
 BATCH_PATTERN = r"\[(.*?)\] (.*?) \((\d+(?:-\d+)?)\) \(1080p\) \[Batch\]"
 
-seen_entry_ids = set()
-anime_list = dict()
-
 ### Todo
 # deal with version
 
@@ -127,7 +124,7 @@ def check_rss(dry=False):
             title, ep = get_title_ep(rss_title)
             info(f"RSS - Title: {title} - Episode: {ep}")
             if title != None and (title in anime_list):
-                push_notify(f"Download - Title: {title} - Episode: {ep}")
+                info(f"Download - Title: {title} - Episode: {ep}")
                 download_torrents(title, link)
 
 
@@ -256,6 +253,9 @@ def write_list():
 rss_last_check = 0
 pb_last_check = 0
 pb_last_success = time.time()
+dirty = False
+seen_entry_ids = set()
+anime_list = dict()
 # check_rss(True)
 
 config_folder = os.path.expanduser("~/.config/anime_download_service")
@@ -268,10 +268,9 @@ if os.path.exists(anilist_file_path):
     tmp = anime_list
     anime_list = dict()
     for key, value in tmp.items():
-        new = key.replace("–",'-')
-        anime_list[new] = value
-else:
-    write_list()
+        new_key = key.replace("–",'-')
+        anime_list[new_key] = value
+write_list()
 
 if os.path.exists(config_file_path):
     with open(config_file_path, "r") as config_file:
@@ -280,8 +279,6 @@ if os.path.exists(config_file_path):
 else:
     info("config.yaml not found")
     exit()
-
-dirty = False
 
 while True:
     current_time = time.time()
