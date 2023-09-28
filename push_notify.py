@@ -7,6 +7,8 @@ from syslog import syslog
 
 PUSHBULLET_API_URL = "https://api.pushbullet.com/v2/pushes"
 
+syslog(f"Start send push notify. {argv}")
+
 config_folder = os.path.expanduser("~/.config/anime_download_service")
 config_file_path = os.path.join(config_folder, "config.yaml")
 

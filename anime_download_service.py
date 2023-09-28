@@ -23,6 +23,7 @@ DOWNLOAD_FOLDER = "/media/pi/Drive/Anime"
 DRY_RUN = "dryrun" in os.environ
 DEBUG = "debug" in os.environ
 PATTERN = r"\[(.*?)\] (.*?) - (\d+(?:\.\d+)?)v?(\d*) \(1080p\) \[.*?\]\.mkv"
+FALLBACK_PATTERN = r"\[.*?\]\s(.*?)\s-\s(.*?)\s\(.*?\)\s\[.*?\]\.mkv"
 BATCH_PATTERN = r"\[(.*?)\] (.*?) \((\d+(?:-\d+)?)\) \(1080p\) \[Batch\]"
 
 ### Todo
@@ -136,7 +137,11 @@ def get_title_ep(name):
     if match:
         return match.group(2), match.group(3)
     else:
-        return None, None
+        match = re.match(FALLBACK_PATTERN, name)
+        if match:
+            return match.group(1), match.group(2)
+        else:
+            return None, None
 
 
 def magnet_to_hash(magnet):
@@ -193,7 +198,7 @@ def download_anime(url, batch=False, stop=False, move=False, force=False):
     for link in magnet_links:
         if re.search(BATCH_PATTERN, unquote(link)):
             batch_link.append(link)
-        elif get_title_ep(unquote(link))[1] != None:
+        else:
             episode_link.append(link)
 
     if batch:
@@ -226,8 +231,8 @@ def download_torrents(title, links, move=False):
     if not move:
         for link in links:
             if magnet_to_hash(link) not in torrents_dict:
-                _, ep = get_title_ep(link)
-                info(f"Download {title} Episode {ep}")
+                _, ep = get_title_ep(unquote(link))
+                info(f"Download {title} - Episode {ep}")
                 deluge.core.add_torrent_magnet(link, download_options)
     deluge.disconnect()
 

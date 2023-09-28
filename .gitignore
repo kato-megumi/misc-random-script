@@ -6,3 +6,4 @@ onnxModel/
 .vscode/
 *.log
 *.out
+.*
