@@ -20,12 +20,11 @@ else:
     syslog("config.yaml not found")
     exit()
 
-syslog('deluge test: the script started running')
 for arg in argv[1:]:
     syslog(arg)
 
 
-push_data = {"type": "note", "title": "Anime Download Service", "body": f"Downloaded - {argv[1]}"}
+push_data = {"type": "note", "title": "Anime Download Service", "body": f"Downloaded - {argv[2]}"}
 
 headers = {"Access-Token": API_KEY, "Content-Type": "application/json"}
 try:
