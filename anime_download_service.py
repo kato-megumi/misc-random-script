@@ -160,9 +160,13 @@ def get_anime_info(url):
         # Set a maximum wait time (in seconds)
         wait = WebDriverWait(driver, 10)
         # Wait until an Episode appears
-        element = wait.until(
+        try:
+            wait.until(
             EC.presence_of_element_located((By.CLASS_NAME, "episode-title"))
-        )
+            )
+        except:
+            pass
+        
         magnet_links = [
             i.get_attribute("href")
             for i in driver.find_elements(
