@@ -175,7 +175,10 @@ def get_anime_info(url):
         ]
         magnet_links = [i for i in magnet_links if "1080p" in unquote(i)]
         anime_title = driver.find_element(By.CLASS_NAME, "entry-title").text
-    return anime_title.replace("–",'-'), magnet_links
+        anime_title2, _ = get_title_ep(unquote(magnet_links[-1]))
+        if anime_title != anime_title2:
+            info(f"get diffrent title: {anime_title} {anime_title2}")
+    return anime_title2, magnet_links
 
 
 def download_anime(url, batch=False, stop=False, move=False, force=False):
