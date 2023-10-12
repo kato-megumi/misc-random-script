@@ -77,5 +77,5 @@ if __name__ == "__main__":
             "input": {0: "batch_size", 2: "height", 3: "width"},
             "output": {0: "batch_size", 2: "height", 3: "width"},
         },
-        opset_version=11,
+        opset_version=17,
     )
