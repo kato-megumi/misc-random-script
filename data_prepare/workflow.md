@@ -6,3 +6,4 @@
   - 4xNomosUniDAT_otf
 - ImgAlign - manual
 - Tile image, select high frequency - script
+- Remove dup

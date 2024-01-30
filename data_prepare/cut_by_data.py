@@ -8,7 +8,7 @@ from concurrent.futures import ProcessPoolExecutor
 import shutil
 
 MAX_TILE = 15
-THRESHOLD = 15
+THRESHOLD = 18
 
 def cut(file, lr_folder, hr_folder, lr_cut_folder, hr_cut_folder, tile_size):
     base, ext = os.path.splitext(file)
@@ -27,17 +27,19 @@ def cut(file, lr_folder, hr_folder, lr_cut_folder, hr_cut_folder, tile_size):
             borderType=cv2.BORDER_CONSTANT,
         )
         
-        if (average := np.max(convolved) / (tile_size**2)) < THRESHOLD:
+        ##### Type 1 - choose best
+        # if (average := np.max(convolved) / (tile_size**2)) < THRESHOLD:
+        #     print((f"{lr_folder} {base} {count+1}"))
+        #     break
+        # y, x = np.unravel_index(np.argmax(convolved), convolved.shape)
+
+        ##### Type 2 - choose first
+        indices = np.where(convolved > (THRESHOLD * (tile_size**2)))
+        if len(indices[0]) == 0:
             print((f"{lr_folder} {base} {count+1}"))
             break
+        y,x = (indices[0][0], indices[1][0])
 
-        # print(f"{base}_{count}.png {average}")
-        # if average > 20:
-        #     print("average over 20: ",lr_folder, file)
-        # if count == 0:
-        #     print("best: ",lr_folder, file, average)
-        
-        y, x = np.unravel_index(np.argmax(convolved), convolved.shape)
         if x > img_lr.shape[1] - tile_size:
             x = img_lr.shape[1] - tile_size
         if y > img_lr.shape[0] - tile_size:
