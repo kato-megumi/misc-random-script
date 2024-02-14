@@ -8,44 +8,46 @@ from concurrent.futures import ProcessPoolExecutor
 import shutil
 
 MAX_TILE = 40
-THRESHOLD = 15
+THRESHOLD = 1.5
 
 def cut(file, lr_folder, hr_folder, lr_cut_folder, hr_cut_folder, tile_size):
     base, ext = os.path.splitext(file)
     img_hr = cv2.imread(join(hr_folder, file))
     img_lr = cv2.imread(join(lr_folder, file))
-    gray = cv2.cvtColor(img_lr, cv2.COLOR_BGR2GRAY)  # Converting BGR to gray
-    laplacian = cv2.Laplacian(gray, cv2.CV_64F)
-    out = np.abs(laplacian)
+    up_lr = cv2.resize(img_lr.astype(np.uint16),(img_hr.shape[1], img_hr.shape[0]), interpolation=cv2.INTER_LINEAR)
+    diff_image = cv2.absdiff(up_lr, img_hr.astype(np.uint16))
+    out = cv2.cvtColor(diff_image, cv2.COLOR_BGR2GRAY).astype(np.float64)
     count = 0
+    tile_size_hr = tile_size * 2
     while True:
         convolved = cv2.filter2D(
             out,
             -1,
-            np.ones((tile_size, tile_size), dtype=np.float64),
+            np.ones((tile_size_hr, tile_size_hr), dtype=np.float64),
             anchor=(0, 0),
             borderType=cv2.BORDER_CONSTANT,
         )
         
         ##### Type 1 - choose best
-        # if (average := np.max(convolved) / (tile_size**2)) < THRESHOLD:
-        #     print((f"{lr_folder} {base} {count+1}"))
-        #     break
-        # y, x = np.unravel_index(np.argmax(convolved), convolved.shape)
-
-        ##### Type 2 - choose first
-        indices = np.where(convolved > (THRESHOLD * (tile_size**2)))
-        if len(indices[0]) == 0:
+        if (average := np.max(convolved) / (tile_size_hr**2)) < THRESHOLD:
             print((f"{lr_folder} {base} {count+1}"))
             break
-        y,x = (indices[0][0], indices[1][0])
+        y, x = np.unravel_index(np.argmax(convolved), convolved.shape)
+        y, x = int(y/2), int(x/2)
+
+        ##### Type 2 - choose first
+        # indices = np.where(convolved > (THRESHOLD * (tile_size**2)))
+        # if len(indices[0]) == 0:
+        #     print((f"{lr_folder} {base} {count+1}"))
+        #     break
+        # y,x = (indices[0][0], indices[1][0])
 
         if x > img_lr.shape[1] - tile_size:
             x = img_lr.shape[1] - tile_size
         if y > img_lr.shape[0] - tile_size:
             y = img_lr.shape[0] - tile_size
         
-        out[y : y + tile_size, x : x + tile_size] = 0
+        out[y*2 : y*2 + tile_size_hr, x*2 : x*2 + tile_size_hr] = 0
         cutted_hr = img_hr[
             y * 2 : y * 2 + tile_size * 2, x * 2 : x * 2 + tile_size * 2
         ]
@@ -60,7 +62,7 @@ def cut(file, lr_folder, hr_folder, lr_cut_folder, hr_cut_folder, tile_size):
         
         count += 1
         if count >= MAX_TILE:
-            print("count over max: ", lr_folder, file)
+            print("count over max: ", lr_folder, file, average)
             break
 
 

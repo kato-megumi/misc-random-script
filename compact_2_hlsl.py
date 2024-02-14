@@ -1,3 +1,13 @@
+import torch 
+import math
+import re
+model = torch.load("R:/DigitalFlim.pth", map_location=torch.device('cuda'))
+# model = torch.load("E:/project/neosr/experiments/compact_small/models/net_g_latest.pth", map_location=torch.device('cuda'))
+# model = torch.load("E:/project/neosr/experiments/compact_test/models/net_g_latest.pth", map_location=torch.device('cuda'))
+num_feat = 24
+num_text = int(num_feat/4)
+num_conv = 8
+
 tex_define = """
 //!TEXTURE
 //!WIDTH INPUT_WIDTH
@@ -96,7 +106,7 @@ get_pixel = '''
 
 def cal_weight(j, b, define=False, first=False):
  	return f'''
-	{"float4 " if define else ""}target{j} {"" if first else "+"}= mul(a{b}, float4x4(-0.009462198, 0.067644134, 0.09776196, -0.06859017, -0.1816813, 0.053423163, -0.02265236, 0.06604943, 0.15899086, -0.15651219, 0.2919677, 0.00591133, 0.09306437, 0.047243804, -0.1389423, -0.0076663005));
+	{"float4 " if define else ""}target{j} {"" if first else "+"}= mul(a{b}, float4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, -0.1816813, 0.053423163, -0.02265236, 0.06604943, 0.15899086, -0.15651219, 0.2919677, 0.00591133, 0.09306437, 0.047243804, -0.1389423, -0.0076663005));
 	target{j} += mul(b{b}, float4x4(0.23136483, 0.20969442, -0.25250545, -0.038510673, 0.06916893, -0.19306515, -0.07070081, 0.016512204, 0.05914443, 0.31841832, -0.15109769, 0.058795422, 0.0418041, -0.13008581, 0.15338552, 0.037921127));
 	target{j} += mul(c{b}, float4x4(0.023348259, 0.15947549, 0.16773324, 0.04159353, 0.113954544, -0.071491666, 0.12837915, -0.043326825, 0.058823302, 0.09453112, 0.017051624, 0.048308555, -0.10970718, -0.25019458, 0.074912935, -0.04076737));
 	target{j} += mul(d{b}, float4x4(0.036305163, -0.22121401, 0.120393604, -0.05099148, -0.10198376, -0.04498367, -0.08815256, 0.024565894, -0.04884751, -0.036884382, -0.24040928, -0.112012394, 0.005314592, -0.14346673, 0.04090868, 0.040303618));
@@ -170,9 +180,6 @@ void Pass{pass_no}(uint2 blockStart, uint3 threadId) {{
 
 ###############################################################
 
-num_feat = 24
-num_text = int(num_feat/4)
-num_conv = 8
 hlsl = '''//!MAGPIE EFFECT
 //!VERSION 4
 //!SORT_NAME compact
@@ -214,8 +221,8 @@ for pass_no in range(2, num_conv+2):
 
     for i in range(num_text):
         for b in range(num_text):
-            calculation += cal_weight(j="",b=b,define=(i==0),first=(b==0))
-        calculation += cal_bias_prelu.format(a=pass_no, b=b)
+            calculation += cal_weight(j="", b=b, define=(i==0 and b==0), first=(b==0))
+        calculation += cal_bias_prelu.format(a=pass_no, b=i)
 
     hlsl+= pass_define.format(pass_no=pass_no,in_tex=in_tex,out_tex=out_tex,calculation=calculation)
 
@@ -229,24 +236,15 @@ for b in range(num_text):
 
 for i in range(3):
     for b in range(num_text):
-        calculation += cal_weight(j=i+1,b=b,define=(i==0),first=(b==0))
+        calculation += cal_weight(j=i+1, b=b, define=(b==0), first=(b==0))
     calculation += f'''         
-        target{i+1} += float4(-0.09062037, 0.013100331, -0.030562, -0.0064230394);
+    target{i+1} += float4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000);
 '''
 hlsl+= last_pass.format(pass_no=pass_no,in_tex=in_tex,calculation=calculation)
 
 
 
-
-
-
-import torch 
-import math
-import re
-model = torch.load("Z:/animejanai_suc.pth", map_location=torch.device('cuda'))
-
-def convert(weight, bias, data, prelu=None, doswap=False):
-    swap = [0,2,1,3]
+def convert(weight, bias, data, prelu=None):
     out_chan, in_chan, width, height = weight.shape
     for to in range(math.ceil(out_chan/4)):
         for ti in range(math.ceil(in_chan/4)):
@@ -254,20 +252,21 @@ def convert(weight, bias, data, prelu=None, doswap=False):
                 for h in range(height):
                     for i in range(min(4, in_chan)):
                         for o in range(min(4, out_chan)):
-                            o = swap[o] if doswap else o
-                            data.append(float(weight[to*4+o, ti*4+i, w, h]))
+                            data.append(float(weight[to*4+o, ti*4+i, h, w]))
         for o in range(min(4, out_chan)):
-            o = swap[o] if doswap else o
             data.append(float(bias.data[to*4+o]))
+            
+        for o in range(min(4, out_chan)):
             if prelu is not None:
                 data.append(float(prelu.data[to*4+o]))
 
-model = model['params_ema']
+# model = model['params_ema']
+model = model['params']
 num_conv = len([i for i in model.keys() if ".bias" in i])
 data = []
 for i in range(num_conv):
     if i == num_conv-1:
-        convert(model[f"body.{i*2}.weight"], model[f"body.{i*2}.bias"], data, doswap=True)
+        convert(model[f"body.{i*2}.weight"], model[f"body.{i*2}.bias"], data)
     else:
         convert(model[f"body.{i*2}.weight"], model[f"body.{i*2}.bias"], data, prelu=model[f"body.{2*i+1}.weight"])
     
@@ -280,3 +279,11 @@ pattern = r'-?\d+(\.\d{2,})(e-?\d+)?'
 new_text = re.sub(pattern, replace_match, hlsl)
 with open("compact.hlsl","w") as f:
     f.write(new_text)
+
+
+try: 
+	next(data_iter)
+except StopIteration: 
+	print("done")
+else:
+	print("Fail")

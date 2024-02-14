@@ -1,4 +1,4 @@
-name: test_a4k_12_5x2_12
+name: otome_a4k_14_7_12_diff
 model_type: default
 scale: 2
 num_gpu: 1
@@ -10,8 +10,8 @@ manual_seed: 1337
 datasets:
   train:
     type: paired
-    dataroot_gt: R:\otome\Output\hr
-    dataroot_lq: R:\otome\Output\lr
+    dataroot_gt: R:\otome\diff\hr
+    dataroot_lq: R:\otome\diff\lr
     io_backend:
       type: disk
 
@@ -39,12 +39,15 @@ val:
       type: calculate_ssim
 
 path:
+  pretrain_network_g: 'E:\project\neosr\experiments\otome_a4k_14_7_12\models\net_g_latest.pth'
+  param_key_g: params
+  strict_load_g: true
   resume_state: ~
 
 network_g:
   type: anime4k
-  block_depth: 12
-  stack_list: [-9,-7,-5,-3,-1]
+  block_depth: 14
+  stack_list: 7
   num_feat: 12
 
 #print_network: true
@@ -52,7 +55,7 @@ network_g:
 train:
   optim_g:
     type: adan
-    lr: !!float 2e-3
+    lr: !!float 1e-3
     weight_decay: 0.02
     weight_decouple: true
     use_gc: true
@@ -61,7 +64,7 @@ train:
 
   scheduler:
     type: multisteplr
-    milestones: [20000, 40000]
+    milestones: [30000, 40000]
     gamma: 0.5
 
   total_iter: 50000
