@@ -234,5 +234,6 @@ def unsharp_mask_node(
 
 def ringing(image, size: tuple):
     img = resize(image, size, interpolation = Filter.LANCZOS).astype(np.float32) / 255
-    img = unsharp_mask_node(img, 3, 0.0929, 0.91) * 255
+    img = np.clip(unsharp_mask_node(img, 3, 0.0929, 0.91), 0, 1) * 255
+    
     return img.astype(np.uint8)
