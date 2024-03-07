@@ -1,45 +1,56 @@
-name: amakano_14-7-12_50-75-100
+name: amakano_a14-14_continue3
 model_type: default
 scale: 2
 num_gpu: 1
 use_amp: true
 bfloat16: true
+fast_matmul: true
 compile: false
-manual_seed: 1337
+# manual_seed: 1337
 
 datasets:
   train:
     type: paired
-    dataroot_gt: E:\Dataset\amakano2\combine_scale_50_75\hr_combine
-    dataroot_lq: E:\Dataset\amakano2\combine_scale_50_75\lr_combine
+    dataroot_gt: R:\Output\hr
+    dataroot_lq: R:\Output\lr
     io_backend:
       type: disk
 
     gt_size: 384
-    batch_size: 20
+    batch_size: 32
     use_hflip: true
     use_rot: true
     num_worker_per_gpu: 8
-    dataset_enlarge_ratio: 10
-
+    dataset_enlarge_ratio: 2
   val:
     name: val_1
-    type: paired
-    dataroot_gt: R:\amakano\val\hr
-    dataroot_lq: R:\amakano\val\lr
+    type: single
+    dataroot_lq: R:\val\
     io_backend:
-        type: disk
+      type: disk
+        
 val:
-  val_freq: 1000
+  val_freq: 10000
   save_img: true
-  metrics:
-    psnr: 
-      type: calculate_psnr
-    ssim:
-      type: calculate_ssim
+
+#   val:
+#     name: val_1
+#     type: paired
+#     dataroot_gt: R:\amakano\val\hr
+#     dataroot_lq: R:\amakano\val\lr
+#     io_backend:
+#         type: disk
+# val:
+#   val_freq: 5000
+#   save_img: true
+#   metrics:
+#     psnr: 
+#       type: calculate_psnr
+#     ssim:
+#       type: calculate_ssim
 
 path:
-  pretrain_network_g: 'E:\project\neosr\experiments\otome_a4k_14_7_12\models\net_g_latest.pth'
+  pretrain_network_g: 'E:\project\neosr\experiments\amakano_a14-14_continue2\models\net_g_latest.pth'
   param_key_g: params
   strict_load_g: true
   resume_state: ~
@@ -47,7 +58,7 @@ path:
 network_g:
   type: anime4k
   block_depth: 14
-  stack_list: 7
+  stack_list: 14
   num_feat: 12
 
 #print_network: true
@@ -64,10 +75,10 @@ train:
 
   scheduler:
     type: multisteplr
-    milestones: [30000, 70000]
+    milestones: [20000000]
     gamma: 0.5
 
-  total_iter: 105000
+  total_iter: 50000
   warmup_iter: -1  # no warm up
 
   # losses

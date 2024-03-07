@@ -1,0 +1,65 @@
+input_folder: 
+  - E:\Dataset\amakano2\1080p
+  - E:\Dataset\amakano2\2160p_escale
+output_folder: R:\Output
+scale: 2
+tile_size: 192
+# default_threshold: 18  # default 18
+# default_lr: # default 0
+#   - 0
+# default_hr: # default 1
+#   - 0
+# default_action_hr: CV2_LANCZOS # default CV2_LANCZOS
+# 1/4 14 -> 299
+# 1/4 13 -> 328
+# 1/4 11 -> 393
+
+# 1/3 16 -> 426
+# 1/3 17 -> 387
+
+# 1/2 20 -> 545
+# 1/2 22 -> 473
+# 1/2 23 -> 431
+
+# 2/3 22 -> 598   !important
+
+# 22/30 25 -> 477
+
+# 1.2 25 -> 277
+# 1.2 23 -> 379
+# 1.2 20 -> 638   !important
+degrade:
+  # linear downscale to create thick, dark lines
+  - action_lr:
+      - LINEAR: 1/3
+    threshold: 17
+  - action_lr:
+      - LINEAR: 1/2
+    threshold: 23
+  # cv2 downscale to learn small features
+  - action_lr:
+      - CV2_LANCZOS: 1/3
+    threshold: 16
+  - action_lr:
+      - CV2_LANCZOS: 1/2
+    threshold: 22
+  # linear upscale to deblur upscaled image
+  - action_lr:
+      - LINEAR: 1.2
+    threshold: 20
+  - action_lr:
+      - ringing: 2/3    # 2/3 is 720
+      - LINEAR: 22/30
+    threshold: 25
+  # ringing
+  - action_lr:
+      - CV2_LANCZOS: 3/8
+      - ringing: 1/4
+    threshold: 11
+  - action_lr:
+      - CV2_LANCZOS: 1/2
+      - ringing: 1/3
+    threshold: 16
+  - action_lr:
+      - ringing: 2/3
+    threshold: 22

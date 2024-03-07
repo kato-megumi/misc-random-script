@@ -1,12 +1,13 @@
 import torch 
 import math
 import re
-model = torch.load("R:/DigitalFlim.pth", map_location=torch.device('cuda'))
-# model = torch.load("E:/project/neosr/experiments/compact_small/models/net_g_latest.pth", map_location=torch.device('cuda'))
+# model = torch.load("R:/animejanai_sharp_SUC.pth", map_location=torch.device('cuda'))
+model = torch.load("E:/project/neosr/experiments/amakano_compact32-10_r_b_li-la/models/net_g_latest.pth", map_location=torch.device('cuda'))
 # model = torch.load("E:/project/neosr/experiments/compact_test/models/net_g_latest.pth", map_location=torch.device('cuda'))
-num_feat = 24
+out_hlsl = "R:/amakano-compact32-10.hlsl"
+num_feat = 32
 num_text = int(num_feat/4)
-num_conv = 8
+num_conv = 10
 
 tex_define = """
 //!TEXTURE
@@ -277,7 +278,7 @@ def replace_match(match):
 pattern = r'-?\d+(\.\d{2,})(e-?\d+)?'
 
 new_text = re.sub(pattern, replace_match, hlsl)
-with open("compact.hlsl","w") as f:
+with open(out_hlsl,"w") as f:
     f.write(new_text)
 
 

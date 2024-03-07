@@ -31,6 +31,8 @@ class Filter(IntEnum):
     CV2_LINEAR = 14
     CV2_AREA = 15
     CV2_CUBIC = 16
+    
+FilterDict = {i.name: i.value for i in Filter}
 
 FILTER_MAP: dict[Filter, ResizeFilter] = {
     Filter.NEAREST: ResizeFilter.Nearest,

@@ -1,0 +1,62 @@
+input_folder: 
+ - E:\Dataset\unless\ev
+output_folder: R:\test_script
+scale: 2
+tile_size: 192
+default_threshold: 18  # default 18
+default_lr: # default 0
+  - 0
+default_hr: # default 1
+  - 0
+default_action_hr: CV2_LANCZOS # default CV2_LANCZOS
+degrade:
+# pure linear downscale
+  - action_lr:
+      - LINEAR: 60/120
+    threshold: 21
+  - action_lr:
+      - LINEAR: 40/120
+    threshold: 17
+# cv2 lanczos downscale
+  - action_lr:
+      - CV2_LANCZOS: 60/120
+    threshold: 19
+  - action_lr:
+      - CV2_LANCZOS: 40/120
+    threshold: 16
+# linear downscale and linear upscale (12->25%)
+  - action_lr:
+      - LINEAR: 30/120
+      - LINEAR: 38/120
+    threshold: 19
+  - action_lr:
+      - LINEAR: 35/120
+      - LINEAR: 39/120
+    threshold: 19
+  - action_lr:
+      - LINEAR: 35/120
+      - LINEAR: 45/120
+    threshold: 22
+  - action_lr:
+      - LINEAR: 40/120
+      - LINEAR: 45/120
+    threshold: 22
+  - action_lr:
+      - LINEAR: 40/120
+      - LINEAR: 51/120
+    threshold: 23
+  - action_lr:
+      - LINEAR: 44/120
+      - LINEAR: 60/120
+    threshold: 23
+# linear downscale and linear upscale (~230%)
+  # - action_lr:
+  #     - CV2_LANCZOS: 50/120
+  #     - LINEAR: 120/120
+  #   action_hr: MITCHELL
+  #   threshold: 19
+  # - action_lr:
+  #     - CV2_LANCZOS: 52/120
+  #     - LINEAR: 120/120
+  #   action_hr: MITCHELL
+  #   threshold: 19

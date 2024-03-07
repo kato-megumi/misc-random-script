@@ -4,6 +4,7 @@ scale: 2
 num_gpu: 1
 use_amp: true
 bfloat16: true
+fast_matmul: true
 compile: false
 # manual_seed: 1024
 

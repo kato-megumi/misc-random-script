@@ -1,4 +1,4 @@
-name: ginka_compact3
+name: amakano_span3
 model_type: default
 scale: 2
 num_gpu: 1
@@ -11,51 +11,60 @@ compile: false
 datasets:
   train:
     type: paired
-    dataroot_gt: R:\ginka\Output\hr
-    dataroot_lq: R:\ginka\Output\lr
+    dataroot_gt: R:\Output\hr
+    dataroot_lq: R:\Output\lr
     io_backend:
       type: disk
 
     gt_size: 384
-    batch_size: 20
+    batch_size: 16
     use_hflip: true
     use_rot: true
     num_worker_per_gpu: 8
-    dataset_enlarge_ratio: 10
-
+    dataset_enlarge_ratio: 5
   val:
     name: val_1
-    type: paired
-    dataroot_gt: R:\ginka\val\hr
-    dataroot_lq: R:\ginka\val\lr
+    type: single
+    dataroot_lq: R:\val\
     io_backend:
-        type: disk
+      type: disk
+        
 val:
-  val_freq: 5000
+  val_freq: 10000
   save_img: true
-  metrics:
-    psnr: 
-      type: calculate_psnr
-    ssim:
-      type: calculate_ssim
+
+#   val:
+#     name: val_1
+#     type: paired
+#     dataroot_gt: R:\amakano\val\hr
+#     dataroot_lq: R:\amakano\val\lr
+#     io_backend:
+#         type: disk
+# val:
+#   val_freq: 5000
+#   save_img: true
+#   metrics:
+#     psnr: 
+#       type: calculate_psnr
+#     ssim:
+#       type: calculate_ssim
 
 path:
-  pretrain_network_g: 'E:\project\neosr\experiments\ginka_compact2\models\net_g_5000.pth'
+  pretrain_network_g: 'E:\project\neosr\experiments\amakano_span2\models\net_g_latest.pth'
   param_key_g: params
   strict_load_g: true
   resume_state: ~
 
 network_g:
-  type: compact
-  num_feat: 24
-  num_conv: 8
+  type: span
+  feature_channels: 16
 
 #print_network: true
 
 train:
   optim_g:
     type: adan
-    lr: !!float 8e-3
+    lr: !!float 16e-4
     weight_decay: 0.02
     weight_decouple: true
     use_gc: true
@@ -64,7 +73,7 @@ train:
 
   scheduler:
     type: multisteplr
-    milestones: [20000, 40000]
+    milestones: [20000000]
     gamma: 0.5
 
   total_iter: 50000
@@ -72,7 +81,7 @@ train:
 
   # losses
   pixel_opt:
-    type: HuberLoss
+    type: L1Loss
     loss_weight: 1.0
 
 logger:

@@ -1,17 +1,19 @@
-name: amakano_compact_40_60_80
+name: amakano_compact_r_b2_li-la
+# ringing(normal and downscale) blur(upscale) blur(downscale)
 model_type: default
 scale: 2
 num_gpu: 1
 use_amp: true
 bfloat16: true
+fast_matmul: true
 compile: false
-manual_seed: 1337
+# manual_seed: 1337
 
 datasets:
   train:
     type: paired
-    dataroot_gt: R:\40_60_80\hr
-    dataroot_lq: R:\40_60_80\lr
+    dataroot_gt: R:\Output2\hr
+    dataroot_lq: R:\Output2\lr
     io_backend:
       type: disk
 
@@ -19,27 +21,38 @@ datasets:
     batch_size: 20
     use_hflip: true
     use_rot: true
-    num_worker_per_gpu: 8
-    dataset_enlarge_ratio: 10
+    num_worker_per_gpu: 16
+    dataset_enlarge_ratio: 5
 
-  val:
-    name: val_1
-    type: paired
-    dataroot_gt: R:\amakano\val\hr
-    dataroot_lq: R:\amakano\val\lr
-    io_backend:
-        type: disk
-val:
-  val_freq: 5000
-  save_img: true
-  metrics:
-    psnr: 
-      type: calculate_psnr
-    ssim:
-      type: calculate_ssim
+#   val:
+#     name: val_1
+#     type: single
+#     dataroot_lq: R:\val\
+#     io_backend:
+#         type: disk
+        
+# val:
+#     val_freq: 10000
+#     save_img: true
+
+#   val:
+#     name: val_1
+#     type: paired
+#     dataroot_gt: R:\amakano\val\hr
+#     dataroot_lq: R:\amakano\val\lr
+#     io_backend:
+#         type: disk
+# val:
+#   val_freq: 5000
+#   save_img: true
+#   metrics:
+#     psnr: 
+#       type: calculate_psnr
+#     ssim:
+#       type: calculate_ssim
 
 path:
-  pretrain_network_g: 'E:\project\neosr\experiments\amakano_compact_40-50-60-70-80\models\net_g_latest.pth'
+  pretrain_network_g: 'E:\project\neosr\experiments\amakano_compact_r_b_li-la\models\net_g_latest.pth'
   param_key_g: params
   strict_load_g: true
   resume_state: ~
@@ -63,10 +76,10 @@ train:
 
   scheduler:
     type: multisteplr
-    milestones: [40000, 80000]
+    milestones: [20000, 40000]
     gamma: 0.5
 
-  total_iter: 100000
+  total_iter: 50000
   warmup_iter: -1  # no warm up
 
   # losses
