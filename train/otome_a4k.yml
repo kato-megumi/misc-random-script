@@ -1,4 +1,4 @@
-name: otomedomain_new
+name: otome_a+_l_3cq
 model_type: default
 scale: 2
 num_gpu: 1
@@ -11,13 +11,13 @@ compile: false
 datasets:
   train:
     type: paired
-    dataroot_gt: R:\otome\Output\hr
-    dataroot_lq: R:\otome\Output\lr
+    dataroot_gt: R:\otome_out2\hr
+    dataroot_lq: R:\otome_out2\lr
     io_backend:
       type: disk
 
     gt_size: 384
-    batch_size: 20
+    batch_size: 24
     use_hflip: true
     use_rot: true
     num_worker_per_gpu: 8
@@ -25,36 +25,49 @@ datasets:
 
   val:
     name: val_1
-    type: paired
-    dataroot_gt: R:\otome\val\hr
-    dataroot_lq: R:\otome\val\lr
+    type: single
+    dataroot_lq: R:\valringing\
     io_backend:
-        type: disk
+      type: disk
+        
 val:
-  val_freq: 5000
+  val_freq: 10000
   save_img: true
-  metrics:
-    psnr: 
-      type: calculate_psnr
-    ssim:
-      type: calculate_ssim
+
+#   val:
+#     name: val_1
+#     type: paired
+#     dataroot_gt: R:\amakano\val\hr
+#     dataroot_lq: R:\amakano\val\lr
+#     io_backend:
+#         type: disk
+# val:
+#   val_freq: 5000
+#   save_img: true
+#   metrics:
+#     psnr: 
+#       type: calculate_psnr
+#     ssim:
+#       type: calculate_ssim
 
 path:
-  pretrain_network_g: 'E:\project\neosr\experiments\otomedomain_continue2\models\net_g_latest.pth'
-  param_key_g: params
-  strict_load_g: true
+  # pretrain_network_g: 'E:\project\neosr\experiments\otome_a+_l_3cq\models\net_g_latest.pth'
+  # param_key_g: params
+  # strict_load_g: true
   resume_state: ~
 
 network_g:
   type: anime4k
-  # num_feat: 16
+  block_depth: 17
+  stack_list: 9
+  num_feat: 12
 
 #print_network: true
 
 train:
   optim_g:
     type: adan
-    lr: !!float 2e-3
+    lr: !!float 64e-4
     weight_decay: 0.02
     weight_decouple: true
     use_gc: true
@@ -62,37 +75,29 @@ train:
     # betas: [0.9, 0.99]
 
   scheduler:
-    type: multisteplr
-    milestones: [40000, 80000]
-    gamma: 0.5
+    # type: multisteplr
+    # milestones: [20000, 40000]
+    # gamma: 0.5
+    type: cosineannealing
+    T_max: 50000
+    eta_min: !!float 6e-5
 
-  total_iter: 100000
+  total_iter: 20000
   warmup_iter: -1  # no warm up
 
   # losses
   pixel_opt:
     type: L1Loss
     loss_weight: 1.0
-  ldl_opt:
-    type: L1Loss
-    loss_weight: 500.0
-    reduction: mean
-  ff_opt:
-   type: focalfrequencyloss
-   loss_weight: 100.0
-  # perceptual_opt:
-  #   type: PerceptualLoss
-  #   layer_weights:
-  #       'conv1_2': 0.1
-  #       'conv2_2': 0.1
-  #       'conv3_4': 1
-  #       'conv4_4': 1
-  #       'conv5_4': 1
-  #   vgg_type: vgg19
-  #   use_input_norm: true
-  #   range_norm: false
-  #   perceptual_weight: 1.0
-  #   style_weight: 0
+  # ldl_opt:
+  #   type: L1Loss
+  #   loss_weight: 400.0
+  # ff_opt:
+  #   type: focalfrequencyloss
+  #   loss_weight: 0.5
+  # gv_opt:
+  #   type: gradvarloss
+  #   loss_weight: 0.5
   #   criterion: l1
 
 logger:

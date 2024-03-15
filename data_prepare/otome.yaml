@@ -1,0 +1,43 @@
+input_folder: 
+  - E:\Dataset\otome\_0_
+  - E:\Dataset\otome\_2_
+  - E:\Dataset\otome\_3_
+  - E:\Dataset\otome\ev_dejpeg
+output_folder: R:\otome_out2
+scale: 2
+tile_size: 192
+# default_threshold: 18  # default 18
+default_lr: # default 0
+  - 1
+default_hr: # default 1
+  - 0
+default_action_hr: LANCZOS # default CV2_LANCZOS
+
+degrade:
+  # - action_lr: []  # denote as 2
+  #   threshold: 24
+  - action_lr: []  # denote as 3
+    threshold: 18
+    lr: 
+      - 2
+  - action_lr:    # denote as c
+    - CATROM: 1/2
+    threshold: 25
+    lr:
+      - 3
+    hr:
+      - 3
+  # - action_lr:     # denote as t
+  #   - LINEAR: 1/2
+  #   threshold: 26
+  #   lr:
+  #     - 3
+  #   hr:
+  #     - 3
+  - action_lr:     # denote as q
+    - CV2_LINEAR: 1/4
+    threshold: 21
+    lr:
+      - 3
+    hr:
+      - 3

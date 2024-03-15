@@ -34,6 +34,7 @@ def cut(file, config):
     img_lr = cv2.imread(join(lr_folder, file))
     img_hr = cv2.imread(join(hr_folder, file))
     original_size = img_lr.shape[:2][::-1]
+    lr_size = original_size
     
     for actions in action_lr:
         action, factor = next(iter(actions.items()))

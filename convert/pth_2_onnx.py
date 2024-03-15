@@ -58,11 +58,11 @@ if __name__ == "__main__":
     parser.add_argument("pth", help="Path to the input pth file")
     parser.add_argument("out", help="Path to the output folder")
     # parser.add_argument("para", help="Parameter for arch")
-    parser.add_argument("name", help="Name of onnx")
+    # parser.add_argument("name", help="Name of onnx")
     args = parser.parse_args()
     
     base, ext = os.path.splitext(os.path.basename(args.pth))
-    out = os.path.join(args.out, f"{args.name}.onnx")
+    out = args.out if args.out[-5:]==".onnx" else args.out+".onnx"
 
     device = torch.device("cuda")
     dummy_input = torch.randn(1, 3, 720, 1280).half().to(device)
