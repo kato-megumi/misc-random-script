@@ -81,22 +81,6 @@ def random_hsv_color():
 def random_color():
     return (random.randrange(255), random.randrange(255), random.randrange(255))
 
-def resize(image, size, interpolation):
-    """
-    Args:
-        image (np.ndarray): range from 0 to 255
-        size: tuple
-        interpolation: type of interpolation
-
-    Returns:
-        image (np.ndarray): range from 0 to 255
-    """
-    if interpolation < Filter.CV2_NEAREST:
-        out = resize_chainner(image.astype(np.float32) / 255.0, tuple(size), FILTER_MAP[interpolation], False) * 255
-    else:
-        out = cv2.resize(image, size, interpolation=FILTER_MAP[interpolation])
-    return out.astype(np.uint8)
-
 def fast_gaussian_blur(
     img: np.ndarray,
     sigma_x: float,
@@ -243,15 +227,64 @@ def unsharp_mask_node(
 
     return img
 
+def resize(
+    image: np.ndarray,
+    size: tuple,
+    interpolation: Filter,
+) -> np.ndarray:
+    """Resize an image.
+
+    Args:
+        image (np.ndarray): Input image, range from 0 to 255.
+        size (tuple): Desired output size.
+        interpolation (Filter): Type of interpolation.
+
+    Returns:
+        np.ndarray: Resized image, range from 0 to 255.
+    """
+    if interpolation < Filter.CV2_NEAREST:
+        out = resize_chainner(
+            image.astype(float) / 255.0,
+            tuple(size),
+            FILTER_MAP[interpolation],
+            False,
+        ) * 255
+    else:
+        out = cv2.resize(image, size, interpolation=FILTER_MAP[interpolation])
+    return out.astype(np.uint8)
+
 def ringing(image: np.ndarray, 
             radius: float,
             amount: float,
-            threshold: float):
+            threshold: float) -> np.ndarray:
     """
+    Apply unsharp masking to an image to reduce noise and improve details.
+
     Args:
-        image (np.ndarray): range from 0 to 255
+        image (np.ndarray): Input image, range from 0 to 255.
+        radius (float): Gaussian kernel radius for unsharp masking.
+        amount (float): Strength of unsharp masking. A value of 1 means no change.
+        threshold (float): Threshold for suppressing high-frequency details.
+
     Returns:
-        image (np.ndarray): range from 0 to 255
+        np.ndarray: Output image, with improved details and reduced noise.
     """
-    img = np.clip(unsharp_mask_node(image.astype(np.float32) / 255, radius, amount, threshold), 0, 1) * 255
-    return img.astype(np.uint8)
+    img = np.clip(unsharp_mask_node(image.astype(float) / 255, radius, amount, threshold), 0, 1)
+    return (img * 255).astype(np.uint8)
+
+def ssim(
+    img1: np.ndarray,
+    img2: np.ndarray,
+) -> float:
+    """
+    Calculates mean localized Structural Similarity Index (SSIM)
+    between two images.
+
+    Args:
+        img1 (np.ndarray): first image, range from 0 to 255
+        img2 (np.ndarray): second image, range from 0 to 255
+
+    Returns:
+        float: SSIM value between 0 and 1
+    """
+    return calculate_ssim(img1.astype(float) / 255, img2.astype(float) / 255)

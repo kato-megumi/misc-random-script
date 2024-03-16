@@ -35,6 +35,7 @@ def cut(file, config):
     img_hr = cv2.imread(join(hr_folder, file))
     original_size = img_lr.shape[:2][::-1]
     lr_size = original_size
+    hr_shift_matrix = None
     
     for actions in action_lr:
         action, property = next(iter(actions.items()))
@@ -44,11 +45,17 @@ def cut(file, config):
             img_lr = resize(img_lr, lr_size, interpolation=FilterDict[action])
         elif action == "ringing":
             img_lr = ringing(img_lr, *property)
+        elif action == "shift":
+            shift_matrix = np.float32([[1, 0, property[0]], [0, 1, property[1]]])
+            hr_shift_matrix = np.float32([[1, 0, property[0]*scale], [0, 1, property[1]*scale]])
+            img_lr = cv2.warpAffine(img_lr, shift_matrix, (img_lr.shape[1], img_lr.shape[0]), flags=cv2.INTER_LINEAR)
     lr_good_img = resize(img_hr, lr_size, interpolation=Filter.CV2_LANCZOS)
 
     hr_size = [i * scale for i in lr_size]
     if hr_size != list(img_hr.shape[:2][::-1]):
         img_hr = resize(img_hr, hr_size, interpolation=FilterDict[action_hr])
+    if hr_shift_matrix is not None:
+        img_hr = cv2.warpAffine(img_hr, hr_shift_matrix, (img_hr.shape[1], img_hr.shape[0]), flags=cv2.INTER_LINEAR)
 
     gray = cv2.cvtColor(lr_good_img, cv2.COLOR_BGR2GRAY)  # Converting BGR to gray
     laplacian = cv2.Laplacian(gray, cv2.CV_64F)
