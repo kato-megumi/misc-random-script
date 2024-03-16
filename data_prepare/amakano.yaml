@@ -35,11 +35,14 @@ degrade:
     threshold: 12
   # ringing
   - action_lr:
-      - ringing: 1/3
+      - LANCZOS: 1/3
+      - ringing: [3, 0.0929, 0.91]
     threshold: 16
   - action_lr:
-      - ringing: 1/2
+      - LANCZOS: 1/2
+      - ringing: [3, 0.0929, 0.91]
     threshold: 20
   - action_lr:
-      - ringing: 2/3
+      - LANCZOS: 2/3
+      - ringing: [3, 0.0929, 0.91]
     threshold: 18

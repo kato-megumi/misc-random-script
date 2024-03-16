@@ -48,18 +48,22 @@ degrade:
       - LINEAR: 1.2
     threshold: 20
   - action_lr:
-      - ringing: 2/3    # 2/3 is 720
+      - LANCZOS: 2/3    # 2/3 is 720
+      - ringing: [3, 0.0929, 0.91]
       - LINEAR: 22/30
     threshold: 25
   # ringing
   - action_lr:
       - CV2_LANCZOS: 3/8
-      - ringing: 1/4
+      - LANCZOS: 1/4
+      - ringing: [3, 0.0929, 0.91]
     threshold: 11
   - action_lr:
       - CV2_LANCZOS: 1/2
-      - ringing: 1/3
+      - LANCZOS: 1/3
+      - ringing: [3, 0.0929, 0.91]
     threshold: 16
   - action_lr:
-      - ringing: 2/3
+      - LANCZOS: 2/3
+      - ringing: [3, 0.0929, 0.91]
     threshold: 22

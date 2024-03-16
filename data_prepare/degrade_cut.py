@@ -37,13 +37,13 @@ def cut(file, config):
     lr_size = original_size
     
     for actions in action_lr:
-        action, factor = next(iter(actions.items()))
-        factor = eval(str(factor))
-        lr_size = [int(i*factor) for i in original_size]
+        action, property = next(iter(actions.items()))
         if action in FilterDict:
+            factor = eval(str(property))
+            lr_size = [int(i*factor) for i in original_size]
             img_lr = resize(img_lr, lr_size, interpolation=FilterDict[action])
         elif action == "ringing":
-            img_lr = ringing(img_lr, lr_size)
+            img_lr = ringing(img_lr, *property)
     lr_good_img = resize(img_hr, lr_size, interpolation=Filter.CV2_LANCZOS)
 
     hr_size = [i * scale for i in lr_size]

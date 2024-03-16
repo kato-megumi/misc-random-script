@@ -82,6 +82,15 @@ def random_color():
     return (random.randrange(255), random.randrange(255), random.randrange(255))
 
 def resize(image, size, interpolation):
+    """
+    Args:
+        image (np.ndarray): range from 0 to 255
+        size: tuple
+        interpolation: type of interpolation
+
+    Returns:
+        image (np.ndarray): range from 0 to 255
+    """
     if interpolation < Filter.CV2_NEAREST:
         out = resize_chainner(image.astype(np.float32) / 255.0, tuple(size), FILTER_MAP[interpolation], False) * 255
     else:
@@ -234,8 +243,15 @@ def unsharp_mask_node(
 
     return img
 
-def ringing(image, size: tuple):
-    img = resize(image, size, interpolation = Filter.LANCZOS).astype(np.float32) / 255
-    img = np.clip(unsharp_mask_node(img, 3, 0.0929, 0.91), 0, 1) * 255
-    
+def ringing(image: np.ndarray, 
+            radius: float,
+            amount: float,
+            threshold: float):
+    """
+    Args:
+        image (np.ndarray): range from 0 to 255
+    Returns:
+        image (np.ndarray): range from 0 to 255
+    """
+    img = np.clip(unsharp_mask_node(image.astype(np.float32) / 255, radius, amount, threshold), 0, 1) * 255
     return img.astype(np.uint8)
