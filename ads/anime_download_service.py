@@ -13,8 +13,9 @@ import requests
 import datetime
 import os
 import yaml
+import schedule
 import logging
-from logging import debug, info
+from logging import debug, info, warning
 
 API_KEY = "------------------------------"
 PUSHBULLET_API_URL = "https://api.pushbullet.com/v2/pushes"
@@ -33,52 +34,76 @@ logging.basicConfig(filename='ads.log', encoding='utf-8', level=logging.DEBUG, f
 ### Todo
 # deal with version
 
-def check_for_push(pb_last_success):
-    def print_ratelimit(headers):
+
+class Pushbullet():
+    def __init__(self, api_key):
+        self.last_success = time.time()
+        self.header = {
+            "Access-Token": api_key,
+        }
+        
+    def get_ratelimit(self, headers):
         if "X-RateLimit-Remaining" in headers:
             remain = headers["X-RateLimit-Remaining"]
             total = headers["X-RateLimit-Limit"]
             until = datetime.datetime.fromtimestamp(
                 float(headers["X-RateLimit-Reset"])
             ).strftime("%Y-%m-%d %H:%M:%S")
+            return remain, total, until
+        
+    def check_for_push(self):
+        current_time = time.time()
+        failed = False
+        try:
+            response = requests.get(
+                PUSHBULLET_API_URL,
+                headers=self.headers,
+                params={"modified_after": str(int(self.last_success))},
+                timeout=10,
+            )
+        except requests.exceptions.HTTPError as http_e:
+            remain, total, until = self.get_ratelimit(response.headers)
             debug(f"Remain {remain}/{total} units, until {until}")
+            info("Check for push HTTPError")
+            failed = True
+        except Exception as e:
+            failed = True
 
-    def print_last_success():
-        t = datetime.datetime.fromtimestamp(pb_last_success).strftime(
-            "%Y-%m-%d %H:%M:%S.%f"
-        )
-        debug(f"Find push after {t}")
-        print_ratelimit(headers)
-
-    headers = {
-        "Access-Token": API_KEY,
-    }
-
-    current_time = time.time()
-    try:
-        response = requests.get(
-            PUSHBULLET_API_URL,
-            headers=headers,
-            params={"modified_after": str(int(pb_last_success))},
-            timeout=10,
-        )
-    except requests.exceptions.HTTPError as http_e:
-        print_ratelimit(response.headers)
-        info("Check for push HTTPError")
-        return pb_last_check
-    except Exception as e:
-        return pb_last_check
-
-    print_last_success()
-    if response.status_code == 200:
-        pushes = response.json()["pushes"]
-        for push in pushes:
-            push_handle(push)
-        return current_time
-    else:
-        return pb_last_check
+        if not failed and response.status_code == 200:
+            pushes = response.json()["pushes"]
+            self.last_success = current_time
+            for push in pushes:
+                push_handle(push)
+        else:
+            warning("Check for push failed")
 
 
+class Rss():
+    def __init__(self, dry_run = False):
+        self.seen_entry_ids = set()
+        self.dry_run = dry_run
+    
+    def check_rss(self):
+        try:
+            feed = feedparser.parse(RSS_FEED_URL)
+        except Exception as e:
+            info("Check RSS Error")
+            return
+        for entry in feed.entries:
+            entry_id = entry.get("id", "")
+            if entry_id not in self.seen_entry_ids:
+                self.seen_entry_ids.add(entry_id)
+                if self.dry_run:
+                    continue
+                rss_title = entry.get("title", "")
+                link = entry.get("link", "")
+                title, ep = get_title_ep(rss_title)
+                info(f"RSS - Title: {title} - Episode: {ep}")
+                if title != None and (title in anime_list):
+                    info(f"Download - Title: {title} - Episode: {ep}")
+                    download_torrents(title, link)
+
+    
 def push_handle(push):
     if "url" not in push:
         return
@@ -101,27 +126,6 @@ def push_handle(push):
             return
 
     download_anime(link)
-
-
-def check_rss(dry=False):
-    try:
-        feed = feedparser.parse(RSS_FEED_URL)
-    except Exception as e:
-        info("Check RSS Error")
-        return
-    for entry in feed.entries:
-        entry_id = entry.get("id", "")
-        if entry_id not in seen_entry_ids:
-            seen_entry_ids.add(entry_id)
-            if dry:
-                continue
-            rss_title = entry.get("title", "")
-            link = entry.get("link", "")
-            title, ep = get_title_ep(rss_title)
-            info(f"RSS - Title: {title} - Episode: {ep}")
-            if title != None and (title in anime_list):
-                info(f"Download - Title: {title} - Episode: {ep}")
-                download_torrents(title, link)
 
 
 def get_title_ep(name):
@@ -177,18 +181,16 @@ def get_anime_info(url):
 
 
 def download_anime(url, batch=False, stop=False, move=False, force=False):
-    global dirty
-
     debug(f"download_anime: {url=}, {batch=} {stop=} {move=}")
     anime_title, magnet_links = get_anime_info(url)
     if anime_title in anime_list:
         if stop:
             del anime_list[anime_title]
-            dirty = True
+            write_list()
         if not force:
             return
     anime_list[anime_title] = {"link": url}
-    dirty = True
+    write_list()
 
     if move:
         push_notify(f"Move anime: {anime_title}")
@@ -251,9 +253,9 @@ def push_notify(noti):
 
 
 def load_list():
-    global anime_list
     with open(anilist_file_path, "r") as anilist_file:
         anime_list = yaml.load(anilist_file, Loader=yaml.FullLoader)
+    return anime_list
 
 
 def write_list():
@@ -261,13 +263,10 @@ def write_list():
         yaml.dump(anime_list, anilist_file)
 
 
-rss_last_check = 0
-pb_last_check = 0
-pb_last_success = time.time()
-dirty = False
 seen_entry_ids = set()
 anime_list = dict()
-# check_rss(True)
+pb = Pushbullet(API_KEY)
+rss = Rss(DRY_RUN)
 
 config_folder = os.path.expanduser("~/.config/anime_download_service")
 os.makedirs(config_folder, exist_ok=True)
@@ -275,8 +274,7 @@ anilist_file_path = os.path.join(config_folder, "animelist.yaml")
 config_file_path = os.path.join(config_folder, "config.yaml")
 
 if os.path.exists(anilist_file_path):
-    load_list()
-    tmp = anime_list
+    tmp = load_list()
     anime_list = dict()
     for key, value in tmp.items():
         new_key = key.replace("–",'-')
@@ -291,20 +289,9 @@ else:
     info("config.yaml not found")
     exit()
 
+schedule.every(PUSHBULLET_CHECK_INTERVAL).second.do(pb.check_for_push)
+schedule.every(RSS_CHECK_INTERVAL).second.do(rss.check_rss)
+
 while True:
-    current_time = time.time()
-    if current_time - pb_last_check >= PUSHBULLET_CHECK_INTERVAL:
-        load_list()
-        pb_last_success = check_for_push(pb_last_success)
-        pb_last_check = current_time
-        if dirty:
-            write_list()
-            dirty = False
-
-    current_time = time.time()
-    if current_time - rss_last_check >= RSS_CHECK_INTERVAL:
-        load_list()
-        check_rss()
-        rss_last_check = current_time
-
+    schedule.run_pending()
     time.sleep(1)
