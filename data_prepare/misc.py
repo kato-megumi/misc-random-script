@@ -244,7 +244,7 @@ def resize(
     """
     if interpolation < Filter.CV2_NEAREST:
         out = resize_chainner(
-            image.astype(float) / 255.0,
+            image.astype(np.float32) / 255.0,
             tuple(size),
             FILTER_MAP[interpolation],
             False,
@@ -269,7 +269,7 @@ def ringing(image: np.ndarray,
     Returns:
         np.ndarray: Output image, with improved details and reduced noise.
     """
-    img = np.clip(unsharp_mask_node(image.astype(float) / 255, radius, amount, threshold), 0, 1)
+    img = np.clip(unsharp_mask_node(image.astype(np.float32) / 255, radius, amount, threshold), 0, 1)
     return (img * 255).astype(np.uint8)
 
 def ssim(
@@ -287,4 +287,4 @@ def ssim(
     Returns:
         float: SSIM value between 0 and 1
     """
-    return calculate_ssim(img1.astype(float) / 255, img2.astype(float) / 255)
+    return calculate_ssim(img1.astype(np.float32) / 255, img2.astype(np.float32) / 255)

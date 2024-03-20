@@ -1,0 +1,67 @@
+input_folder: 
+  - E:\Dataset\hamidashi\dedupe\hr
+  - E:\Dataset\hamidashi\dedupe\lr
+  - E:\Dataset\hamidashi\bg\hr
+  - E:\Dataset\hamidashi\bg\lr
+output_folder: R:\Output
+scale: 2
+tile_size: 192
+# default_threshold: 18  # default 18
+# [1.5, 0.28, 0.75]
+default_lr: # default 0
+  - 0
+default_hr: # default 1
+  - 0
+# default_action_hr: LANCZOS # default CV2_LANCZOS
+# cv2 lanczos for hr seem to be create cleaner and sharper model
+degrade:
+  # lr ev to hr ev
+  - action_lr: []
+    threshold: 15
+    lr:
+      - 1
+  - action_lr: []
+    threshold: 19
+    lr:
+      - 3
+    hr:
+      - 2
+  # Synthetic from hr to handle sprite
+  - action_lr:
+      - LANCZOS: 1/3
+    threshold: 20
+  - action_lr:
+      - LANCZOS: 1/3
+      - shift: [0, 0.5]
+    threshold: 20
+  - action_lr:
+      - LANCZOS: 1/4
+    threshold: 20
+  # Synthetic data to deal with noise
+  - action_lr:
+      - MITCHELL: 1/3
+    threshold: 26
+  - action_lr:
+      - MITCHELL: 1/4
+    threshold: 24
+  - action_lr:
+      - MITCHELL: 1/2
+    threshold: 22
+  - action_lr:
+      - CV2_LINEAR: 1/2
+    threshold: 23
+    lr:
+      - 1
+      - 3
+    hr:
+      - 0
+      - 2
+  - action_lr:
+      - CV2_LINEAR: 2/3
+    threshold: 26
+    lr:
+      - 1
+      - 3
+    hr:
+      - 0
+      - 2

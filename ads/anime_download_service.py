@@ -13,6 +13,8 @@ import requests
 import datetime
 import os
 import yaml
+import logging
+from logging import debug, info
 
 API_KEY = "------------------------------"
 PUSHBULLET_API_URL = "https://api.pushbullet.com/v2/pushes"
@@ -26,20 +28,10 @@ PATTERN = r"\[(.*?)\] (.*?) - (\d+(?:\.\d+)?)v?(\d*) \(1080p\) \[.*?\]\.mkv"
 FALLBACK_PATTERN = r"\[.*?\]\s(.*?)\s-\s(.*?)\s\(.*?\)\s\[.*?\]\.mkv"
 BATCH_PATTERN = r"\[(.*?)\] (.*?) \((\d+(?:-\d+)?)\) \(1080p\) \[Batch\]"
 
+logging.basicConfig(filename='ads.log', encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s')
+
 ### Todo
 # deal with version
-
-
-def debug(*args, **kwargs):
-    if DEBUG:
-        print("DEBUG: ", end="")
-        print(*args, **kwargs)
-
-
-def info(*args, **kwargs):
-    print("INFO: ", end="")
-    print(*args, **kwargs)
-
 
 def check_for_push(pb_last_success):
     def print_ratelimit(headers):

@@ -8,6 +8,9 @@ import os
 from os.path import join
 import numpy as np
 import uuid
+from pathlib import Path
+from PIL import Image
+from hashlib import sha256
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import shutil
 from misc import resize, ringing, FilterDict, Filter
@@ -161,4 +164,25 @@ if __name__ == "__main__":
                     
         executor.shutdown(wait=True)
     
+    counter = 0
+    lr_path = Path(f"{output_folder}/lr")
+    hr_path = Path(f"{output_folder}/hr")
+    hashed_files = {}
+    for lr_img_path in sorted(lr_path.iterdir()):
+        if lr_img_path.suffix not in (".png", ".jpg", ".jpeg", ".webp"):
+            continue
+        with Image.open(lr_img_path) as hr_img:
+            image_hash = sha256(hr_img.tobytes()).digest()
+        for prev_file, prev_hash in hashed_files.items():
+            if prev_hash == image_hash:
+                hr_img_path = hr_path / lr_img_path.name
+                hr_img_path.unlink()
+                lr_img_path.unlink()
+                counter += 1
+                # print(f"Deleted duplicate image {lr_img_path.name}. Matching file: {prev_file.name}")
+                break
+        else:
+            hashed_files[lr_img_path] = image_hash
+    print(f"Deleted {counter} duplicate images")
+
 
