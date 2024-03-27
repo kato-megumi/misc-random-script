@@ -33,27 +33,38 @@ def cut(file, config):
     lr_folder = config["lr_folder"]
     hr_folder = config["hr_folder"]
     output_folder = config["output_folder"]
+    repeat = config["repeat"]
 
-    img_lr = cv2.imread(join(lr_folder, file))
-    img_hr = cv2.imread(join(hr_folder, file))
+    img_lr = cv2.imdecode(np.fromfile(join(lr_folder, file), dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+    img_lrs = []
+    img_hr = cv2.imdecode(np.fromfile(join(hr_folder, file), dtype=np.uint8), cv2.IMREAD_UNCHANGED)
     original_size = img_lr.shape[:2][::-1]
     lr_size = original_size
     hr_shift_matrix = None
     
-    for actions in action_lr:
-        action, property = next(iter(actions.items()))
-        if action in FilterDict:
-            factor = eval(str(property))
-            lr_size = [int(i*factor) for i in original_size]
-            img_lr = resize(img_lr, lr_size, interpolation=FilterDict[action])
-        elif action == "ringing":
-            img_lr = ringing(img_lr, *property)
-        elif action == "shift":
-            shift_matrix = np.float32([[1, 0, property[0]], [0, 1, property[1]]])
-            hr_shift_matrix = np.float32([[1, 0, property[0]*scale], [0, 1, property[1]*scale]])
-            img_lr = cv2.warpAffine(img_lr, shift_matrix, (img_lr.shape[1], img_lr.shape[0]), flags=cv2.INTER_LINEAR)
+    for _ in range(repeat):
+        for actions in action_lr:
+            action, property = next(iter(actions.items()))
+            if action in FilterDict:
+                factor = eval(str(property))
+                lr_size = [int(i*factor) for i in original_size]
+                img_lr = resize(img_lr, lr_size, interpolation=FilterDict[action])
+            elif action == "ringing":
+                prop = []
+                for p in property:
+                    if isinstance(p, list):
+                        prop.append(np.random.uniform(p[0],p[1]))
+                    else:
+                        prop.append(p)
+                img_lr = ringing(img_lr, *prop)
+                    
+            elif action == "shift":
+                shift_matrix = np.float32([[1, 0, property[0]], [0, 1, property[1]]])
+                hr_shift_matrix = np.float32([[1, 0, property[0]*scale], [0, 1, property[1]*scale]])
+                img_lr = cv2.warpAffine(img_lr, shift_matrix, (img_lr.shape[1], img_lr.shape[0]), flags=cv2.INTER_LINEAR)
+        img_lrs.append(img_lr)
+    
     lr_good_img = resize(img_hr, lr_size, interpolation=Filter.CV2_LANCZOS)
-
     hr_size = [i * scale for i in lr_size]
     if hr_size != list(img_hr.shape[:2][::-1]):
         img_hr = resize(img_hr, hr_size, interpolation=FilterDict[action_hr])
@@ -86,10 +97,10 @@ def cut(file, config):
             break
         y,x = (indices[0][0], indices[1][0])
 
-        if x > img_lr.shape[1] - tile_size:
-            x = img_lr.shape[1] - tile_size
-        if y > img_lr.shape[0] - tile_size:
-            y = img_lr.shape[0] - tile_size
+        if x > lr_good_img.shape[1] - tile_size:
+            x = lr_good_img.shape[1] - tile_size
+        if y > lr_good_img.shape[0] - tile_size:
+            y = lr_good_img.shape[0] - tile_size
         
         out[y : y + tile_size, x : x + tile_size] = 0
         
@@ -97,17 +108,17 @@ def cut(file, config):
             cutted_hr = img_hr[
                 y * 2 : y * 2 + tile_size * 2, x * 2 : x * 2 + tile_size * 2
             ]
-            cutted_lr = img_lr[y : y + tile_size, x : x + tile_size]
             if (cutted_hr.shape != (tile_size*2, tile_size*2, 3) or cutted_hr.shape != (tile_size*2, tile_size*2, 3) ):
                 print(lr_folder, file)
                 exit()
             
-            out_name = uuid.uuid4().hex
-            cv2.imwrite(join(output_folder, "hr", f"{out_name}.png"), cutted_hr)
-            cv2.imwrite(join(output_folder, "lr", f"{out_name}.png"), cutted_lr)
-        
-        count += 1
-        if count >= MAX_TILE:
+            for image_lr in img_lrs:
+                out_name = uuid.uuid4().hex
+                cv2.imwrite(join(output_folder, "lr", f"{out_name}.png"), image_lr[y : y + tile_size, x : x + tile_size])
+                cv2.imwrite(join(output_folder, "hr", f"{out_name}.png"), cutted_hr)
+                count += 1
+
+        if count >= MAX_TILE*repeat:
             # print("count over max: ", lr_folder, file)
             break
     
@@ -157,7 +168,8 @@ if __name__ == "__main__":
                       "action_lr": item["action_lr"],
                       "lr_folder": lr_folder,
                       "hr_folder": hr_folder,
-                      "output_folder": output_folder,}
+                      "output_folder": output_folder,
+                      "repeat": item["repeat"] if "repeat" in item else 1}
                     results = [executor.submit(cut, file, config) for file in files]
                     results = [future.result() for future in as_completed(results)]
                     print(item["action_lr"], threshold, sum(results))

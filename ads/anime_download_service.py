@@ -289,8 +289,8 @@ else:
     info("config.yaml not found")
     exit()
 
-schedule.every(PUSHBULLET_CHECK_INTERVAL).second.do(pb.check_for_push)
-schedule.every(RSS_CHECK_INTERVAL).second.do(rss.check_rss)
+schedule.every(PUSHBULLET_CHECK_INTERVAL).seconds.do(pb.check_for_push)
+schedule.every(RSS_CHECK_INTERVAL).seconds.do(rss.check_rss)
 
 while True:
     schedule.run_pending()
