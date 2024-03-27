@@ -270,8 +270,6 @@ def write_list():
 
 seen_entry_ids = set()
 anime_list = dict()
-pb = Pushbullet(API_KEY)
-rss = Rss(DRY_RUN)
 
 config_folder = os.path.expanduser("~/.config/anime_download_service")
 os.makedirs(config_folder, exist_ok=True)
@@ -294,6 +292,8 @@ else:
     info("config.yaml not found")
     exit()
 
+pb = Pushbullet(API_KEY)
+rss = Rss(DRY_RUN)
 schedule.every(PUSHBULLET_CHECK_INTERVAL).seconds.do(pb.check_for_push)
 schedule.every(RSS_CHECK_INTERVAL).seconds.do(rss.check_rss)
 
