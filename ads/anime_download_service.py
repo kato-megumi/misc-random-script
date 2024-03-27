@@ -38,7 +38,7 @@ logging.basicConfig(filename='ads.log', encoding='utf-8', level=logging.DEBUG, f
 class Pushbullet():
     def __init__(self, api_key):
         self.last_success = time.time()
-        self.header = {
+        self.headers = {
             "Access-Token": api_key,
         }
         
