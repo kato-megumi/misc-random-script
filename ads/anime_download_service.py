@@ -67,6 +67,7 @@ class Pushbullet():
             info("Check for push HTTPError")
             failed = True
         except Exception as e:
+            info(f"Check for push error: {e}")
             failed = True
 
         if not failed and response.status_code == 200:
@@ -75,6 +76,10 @@ class Pushbullet():
             for push in pushes:
                 push_handle(push)
         else:
+            try:
+                warning(f"Status code {response.status_code}")
+            except Exception as e:
+                pass
             warning("Check for push failed")
 
 
