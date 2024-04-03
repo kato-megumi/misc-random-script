@@ -29,7 +29,9 @@ PATTERN = r"\[(.*?)\] (.*?) - (\d+(?:\.\d+)?)v?(\d*) \(1080p\) \[.*?\]\.mkv"
 FALLBACK_PATTERN = r"\[.*?\]\s(.*?)\s-\s(.*?)\s\(.*?\)\s\[.*?\]\.mkv"
 BATCH_PATTERN = r"\[(.*?)\] (.*?) \((\d+(?:-\d+)?)\) \(1080p\) \[Batch\]"
 
-logging.basicConfig(filename='ads.log', encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s')
+log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ads.log')
+LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
+logging.basicConfig(filename=log_file, encoding='utf-8', level=LOGLEVEL, format='%(asctime)s %(message)s')
 
 ### Todo
 # deal with version
