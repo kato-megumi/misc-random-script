@@ -1,3 +1,4 @@
+import base64
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -145,8 +146,8 @@ class Generic:
                 return
             for entry in feed.entries:
                 entry_id = entry.get("id", "")
-                if entry_id not in item.seen_entry_ids:
-                    item.seen_entry_ids.add(entry_id)
+                if entry_id not in self.seen_entry_ids:
+                    self.seen_entry_ids.add(entry_id)
                     name = remove_frill(entry.get("title", ""))
                     title, _ = get_generic_title_ep(name)
                     if item.title == "":
@@ -160,7 +161,7 @@ class Generic:
     def load_list(self):
         if os.path.exists(generic_list_file_path):
             with open(generic_list_file_path, "r") as generic_file:
-                self.list_item = yaml.load(generic_file, Loader=yaml.FullLoader)
+                self.list_item = yaml.unsafe_load(generic_file)
         else:
             self.write_list()
 
@@ -189,10 +190,12 @@ def push_handle(push):
                 download_anime(link, force=True)
                 return
         download_anime(link)
-    elif "https://nyaa.si/?page=rss&q=" in link:
-        generic.add_item(link)
-    elif "https://nyaa.si/?" in link and "page=rss" not in link:
-        generic.add_item(link + "&page=rss")
+    elif "https://nyaa.si/?" in link:
+        if "page=rss" in link:
+            generic.add_item(link)
+        else:
+            generic.add_item(link + "&page=rss")
+    
 
 
 def get_title_ep(name):
@@ -307,10 +310,24 @@ def download_torrents(title, links, move=False):
     )
     if not move:
         for link in links:
-            if magnet_to_hash(link) not in torrents_dict:
-                _, ep = get_title_ep(unquote(link))
-                info(f"Download {title} - Episode {ep}")
-                deluge.core.add_torrent_magnet(link, download_options)
+            if link.startswith("magnet:"):
+                if magnet_to_hash(link) not in torrents_dict:
+                    _, ep = get_title_ep(unquote(link))
+                    info(f"Download {title} - Episode {ep}")
+                    deluge.core.add_torrent_magnet(link, download_options)
+            else:
+                if link.endswith(".torrent"):
+                    response = requests.get(link)
+                    if response.status_code != 200:
+                        warning(f"Failed to download the torrent file {link}")
+                    else:
+                        encoded_content = base64.b64encode(response.content)
+                        info(f"Download {link}")
+                        # TODO: pass torrent data to download_torrents()
+                        try:
+                            deluge.core.add_torrent_file(link, encoded_content, download_options) 
+                        except:
+                            info(f"Failed to download {link}, possibly because already downloaded")
     deluge.disconnect()
 
 
@@ -327,7 +344,7 @@ def push_notify(noti):
 
 def load_list():
     with open(anilist_file_path, "r") as anilist_file:
-        anime_list = yaml.load(anilist_file, Loader=yaml.FullLoader)
+        anime_list = yaml.load(anilist_file, Loader=yaml.Loader)
     return anime_list
 
 
