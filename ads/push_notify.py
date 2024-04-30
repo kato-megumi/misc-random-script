@@ -1,4 +1,4 @@
-#!/usr/bin/python3.9
+#!/usr/bin/python3.11
 import os
 import yaml
 import requests
@@ -24,7 +24,11 @@ for arg in argv[1:]:
     syslog(arg)
 
 
-push_data = {"type": "note", "title": "Anime Download Service", "body": f"Downloaded - {argv[2]}"}
+push_data = {
+    "type": "note",
+    "title": "Anime Download Service",
+    "body": f"Downloaded - {argv[2]}",
+}
 
 headers = {"Access-Token": API_KEY, "Content-Type": "application/json"}
 try:

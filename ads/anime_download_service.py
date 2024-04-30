@@ -28,22 +28,29 @@ DEBUG = "debug" in os.environ
 PATTERN = r"\[(.*?)\] (.*?) - (\d+(?:\.\d+)?)v?(\d*) \(1080p\) \[.*?\]\.mkv"
 FALLBACK_PATTERN = r"\[.*?\]\s(.*?)\s-\s(.*?)\s\(.*?\)\s\[.*?\]\.mkv"
 BATCH_PATTERN = r"\[(.*?)\] (.*?) \((\d+(?:-\d+)?)\) \(1080p\) \[Batch\]"
+GENERIC_PATTERN = r"(.*?) - (\d+(?:\.\d+)?)v?(\d*)"
+DELUGE_SERVER = os.environ.get("DELUGE_SERVER", "127.0.0.1")
 
-log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ads.log')
-LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
-logging.basicConfig(filename=log_file, encoding='utf-8', level=LOGLEVEL, format='%(asctime)s %(message)s')
+log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ads.log")
+LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()
+logging.basicConfig(
+    filename=log_file,
+    encoding="utf-8",
+    level=LOGLEVEL,
+    format="%(asctime)s %(message)s",
+)
 
 ### Todo
 # deal with version
 
 
-class Pushbullet():
+class Pushbullet:
     def __init__(self, api_key):
         self.last_success = time.time()
         self.headers = {
             "Access-Token": api_key,
         }
-        
+
     def get_ratelimit(self, headers):
         if "X-RateLimit-Remaining" in headers:
             remain = headers["X-RateLimit-Remaining"]
@@ -52,7 +59,7 @@ class Pushbullet():
                 float(headers["X-RateLimit-Reset"])
             ).strftime("%Y-%m-%d %H:%M:%S")
             return remain, total, until
-        
+
     def check_for_push(self):
         current_time = time.time()
         failed = False
@@ -85,11 +92,11 @@ class Pushbullet():
             warning("Check for push failed")
 
 
-class Rss():
-    def __init__(self, dry_run = False):
+class Rss:
+    def __init__(self, dry_run=False):
         self.seen_entry_ids = set()
         self.dry_run = dry_run
-    
+
     def check_rss(self):
         try:
             feed = feedparser.parse(RSS_FEED_URL)
@@ -105,34 +112,87 @@ class Rss():
                 rss_title = entry.get("title", "")
                 link = entry.get("link", "")
                 title, ep = get_title_ep(rss_title)
-                info(f"RSS - Title: {title} - Episode: {ep}")
+                debug(f"RSS - Title: {title} - Episode: {ep}")
                 if title != None and (title in anime_list):
                     info(f"Download - Title: {title} - Episode: {ep}")
                     download_torrents(title, link)
 
-    
+
+class GenericItem:
+    def __init__(self, rss_link, title="", type="Anime"):
+        self.rss_link = rss_link
+        self.title = title
+        self.type = type
+
+
+class Generic:
+    def __init__(self, dry_run=False):
+        self.list_item = []
+        self.dry_run = dry_run
+        self.seen_entry_ids = set()
+        self.load_list()
+
+    def add_item(self, rss_link):
+        self.list_item.append(GenericItem(rss_link))
+        self.write_list()
+
+    def check_rss(self):
+        for item in self.list_item:
+            try:
+                feed = feedparser.parse(item.rss_link)
+            except Exception as e:
+                warning(f"Check RSS Error {item.rss_link}")
+                return
+            for entry in feed.entries:
+                entry_id = entry.get("id", "")
+                if entry_id not in item.seen_entry_ids:
+                    item.seen_entry_ids.add(entry_id)
+                    name = remove_frill(entry.get("title", ""))
+                    title, _ = get_generic_title_ep(name)
+                    if item.title == "":
+                        item.title = title
+                    if self.dry_run:
+                        continue
+                    link = entry.get("link", "")
+                    info(f"Download - Title: {name}")
+                    download_torrents(item.title, link)
+
+    def load_list(self):
+        if os.path.exists(generic_list_file_path):
+            with open(generic_list_file_path, "r") as generic_file:
+                self.list_item = yaml.load(generic_file, Loader=yaml.FullLoader)
+        else:
+            self.write_list()
+
+    def write_list(self):
+        with open(generic_list_file_path, "w") as generic_file:
+            yaml.dump(self.list_item, generic_file)
+
+
 def push_handle(push):
     if "url" not in push:
         return
     link = push["url"]
     debug(f"Receive {link}")
-    if "https://subsplease.org/shows" not in link:
-        return
-    if "body" in push:
-        if "batch" in push["body"]:
-            download_anime(link, batch=True)
-            return
-        if "move" in push["body"]:
-            download_anime(link, move=True)
-            return
-        if "stop" in push["body"]:
-            download_anime(link, stop=True)
-            return
-        if "force" in push["body"]:
-            download_anime(link, force=True)
-            return
-
-    download_anime(link)
+    if "https://subsplease.org/shows" in link:
+        if "body" in push:
+            if "batch" in push["body"]:
+                download_anime(link, batch=True)
+                return
+            if "move" in push["body"]:
+                download_anime(link, move=True)
+                return
+            if "stop" in push["body"]:
+                download_anime(link, stop=True)
+                return
+            if "force" in push["body"]:
+                download_anime(link, force=True)
+                return
+        download_anime(link)
+    elif "https://nyaa.si/?page=rss&q=" in link:
+        generic.add_item(link)
+    elif "https://nyaa.si/?" in link and "page=rss" not in link:
+        generic.add_item(link + "&page=rss")
 
 
 def get_title_ep(name):
@@ -145,6 +205,14 @@ def get_title_ep(name):
             return match.group(1), match.group(2)
         else:
             return None, None
+
+
+def get_generic_title_ep(name):
+    match = re.search(GENERIC_PATTERN, name)
+    if match:
+        return match.group(1), match.group(2) + match.group(3)
+    else:
+        return None, None
 
 
 def magnet_to_hash(magnet):
@@ -164,12 +232,10 @@ def get_anime_info(url):
         wait = WebDriverWait(driver, 10)
         # Wait until an Episode appears
         try:
-            wait.until(
-            EC.presence_of_element_located((By.CLASS_NAME, "episode-title"))
-            )
+            wait.until(EC.presence_of_element_located((By.CLASS_NAME, "episode-title")))
         except:
             pass
-        
+
         magnet_links = [
             i.get_attribute("href")
             for i in driver.find_elements(
@@ -225,7 +291,7 @@ def download_torrents(title, links, move=False):
     if isinstance(links, str):
         links = [links]
 
-    deluge = deluge_client.DelugeRPCClient("mypi", 58846, "kotori", "123456")
+    deluge = deluge_client.DelugeRPCClient(DELUGE_SERVER, 58846, "kotori", "123456")
     deluge.connect()
     torrents_dict = deluge.core.get_torrents_status({}, ["name"])
 
@@ -270,6 +336,17 @@ def write_list():
         yaml.dump(anime_list, anilist_file)
 
 
+def remove_bracket(text):
+    pattern = r"\[.*?\]"
+    return re.sub(pattern, "", text)
+
+
+def remove_frill(text):
+    return os.path.splitext(
+        remove_bracket(text).replace("(1080p)", "").replace("(720p)", "")
+    )[0].strip()
+
+
 seen_entry_ids = set()
 anime_list = dict()
 
@@ -277,12 +354,13 @@ config_folder = os.path.expanduser("~/.config/anime_download_service")
 os.makedirs(config_folder, exist_ok=True)
 anilist_file_path = os.path.join(config_folder, "animelist.yaml")
 config_file_path = os.path.join(config_folder, "config.yaml")
+generic_list_file_path = os.path.join(config_folder, "generic.yaml")
 
 if os.path.exists(anilist_file_path):
     tmp = load_list()
     anime_list = dict()
     for key, value in tmp.items():
-        new_key = key.replace("–",'-')
+        new_key = key.replace("–", "-")
         anime_list[new_key] = value
 write_list()
 
@@ -296,8 +374,11 @@ else:
 
 pb = Pushbullet(API_KEY)
 rss = Rss(DRY_RUN)
+generic = Generic(DRY_RUN)
+
 schedule.every(PUSHBULLET_CHECK_INTERVAL).seconds.do(pb.check_for_push)
 schedule.every(RSS_CHECK_INTERVAL).seconds.do(rss.check_rss)
+schedule.every(RSS_CHECK_INTERVAL).seconds.do(generic.check_rss)
 
 while True:
     schedule.run_pending()
