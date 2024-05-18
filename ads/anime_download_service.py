@@ -115,7 +115,7 @@ class Rss:
                 title, ep = get_title_ep(rss_title)
                 debug(f"RSS - Title: {title} - Episode: {ep}")
                 if title != None and (title in anime_list):
-                    info(f"Download - Title: {title} - Episode: {ep}")
+                    info(f"New episode in RSS. Prepare to download - Title: {title} - Episode: {ep}")
                     download_torrents(title, link)
 
 
@@ -152,10 +152,11 @@ class Generic:
                     title, _ = get_generic_title_ep(name)
                     if item.title == "":
                         item.title = title
+                        push_notify(f"Download: {title}")
                     if self.dry_run:
                         continue
                     link = entry.get("link", "")
-                    info(f"Download - Title: {name}")
+                    info(f"New item in RSS. Prepare to download - Title: {name}")
                     download_torrents(item.title, link)
 
     def load_list(self):
@@ -190,13 +191,12 @@ def push_handle(push):
                 download_anime(link, force=True)
                 return
         download_anime(link)
-    elif "https://nyaa.si/?" in link:
+    elif "https://nyaa.si/?" in link or "https://sukebei.nyaa.si/?" in link:
         if "page=rss" in link:
             generic.add_item(link)
         else:
             generic.add_item(link + "&page=rss")
     
-
 
 def get_title_ep(name):
     match = re.search(PATTERN, name)
@@ -257,7 +257,7 @@ def get_anime_info(url):
 
 
 def download_anime(url, batch=False, stop=False, move=False, force=False):
-    debug(f"download_anime: {url=}, {batch=} {stop=} {move=}")
+    debug(f"download_anime(): {url=}, {batch=} {stop=} {move=}")
     anime_title, magnet_links = get_anime_info(url)
     if anime_title in anime_list:
         if stop:
@@ -313,7 +313,7 @@ def download_torrents(title, links, move=False):
             if link.startswith("magnet:"):
                 if magnet_to_hash(link) not in torrents_dict:
                     _, ep = get_title_ep(unquote(link))
-                    info(f"Download {title} - Episode {ep}")
+                    info(f"Started download {title} - Episode {ep}")
                     deluge.core.add_torrent_magnet(link, download_options)
             else:
                 if link.endswith(".torrent"):
@@ -322,7 +322,7 @@ def download_torrents(title, links, move=False):
                         warning(f"Failed to download the torrent file {link}")
                     else:
                         encoded_content = base64.b64encode(response.content)
-                        info(f"Download {link}")
+                        info(f"Started download {link}")
                         # TODO: pass torrent data to download_torrents()
                         try:
                             deluge.core.add_torrent_file(link, encoded_content, download_options) 

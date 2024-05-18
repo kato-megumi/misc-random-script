@@ -1,0 +1,42 @@
+input_folder: 
+  - E:/Dataset/Shugaten/lr
+  - E:/Dataset/Shugaten/hr
+  - E:/Dataset/Shugaten/2
+  - E:/Dataset/Shugaten/0
+  - E:/Dataset/Shugaten/3
+  - E:/Dataset/Shugaten/0_50
+output_folder: R:\shugatenData
+scale: 2
+tile_size: 192
+# default_action_hr: CV2_LINEAR
+
+degrade:
+  - action_lr: []
+  - action_lr: []
+    threshold: 15
+    lr:
+      - 2
+    hr:
+      - 3
+  - action_lr:
+    - CATROM: 1/2
+    threshold: 26 #25
+    lr:
+      - 1
+  - action_lr:
+    - LINEAR: 1/4
+    threshold: 22 #21
+    lr:
+      - 1
+  # experimental
+  - action_lr:
+    - CV2_LINEAR: 1/3
+    threshold: 16
+    lr:
+      - 1
+  # - action_lr: []
+  #   threshold: 11
+  #   lr:
+  #     - 4
+  #   hr:
+  #     - 5

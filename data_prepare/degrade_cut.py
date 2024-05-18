@@ -108,7 +108,8 @@ def cut(file, config):
             cutted_hr = img_hr[
                 y * 2 : y * 2 + tile_size * 2, x * 2 : x * 2 + tile_size * 2
             ]
-            if (cutted_hr.shape != (tile_size*2, tile_size*2, 3) or cutted_hr.shape != (tile_size*2, tile_size*2, 3) ):
+            if (cutted_hr.shape != (tile_size*2, tile_size*2, 3) and cutted_hr.shape != (tile_size*2, tile_size*2, 4) ):
+                print(cutted_hr.shape, tile_size)
                 print(lr_folder, file)
                 exit()
             
