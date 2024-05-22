@@ -17,13 +17,14 @@ import yaml
 import schedule
 import logging
 from logging import debug, info, warning
+from bs4 import BeautifulSoup
 
 API_KEY = "------------------------------"
 PUSHBULLET_API_URL = "https://api.pushbullet.com/v2/pushes"
 RSS_FEED_URL = "https://subsplease.org/rss/?r=1080"
 PUSHBULLET_CHECK_INTERVAL = 5
 RSS_CHECK_INTERVAL = 10
-DOWNLOAD_FOLDER = "/media/pi/Drive/Anime"
+DOWNLOAD_FOLDER = "/media/pi/Drive/"
 DRY_RUN = "dryrun" in os.environ
 DEBUG = "debug" in os.environ
 PATTERN = r"\[(.*?)\] (.*?) - (\d+(?:\.\d+)?)v?(\d*) \(1080p\) \[.*?\]\.mkv"
@@ -43,7 +44,7 @@ logging.basicConfig(
 
 ### Todo
 # deal with version
-
+# reduce ram usage
 
 class Pushbullet:
     def __init__(self, api_key):
@@ -196,7 +197,26 @@ def push_handle(push):
             generic.add_item(link)
         else:
             generic.add_item(link + "&page=rss")
-    
+    elif "https://nyaa.si/view/" in link or "https://sukebei.nyaa.si/view/" in link:
+        try:
+            response = requests.get(link)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'html.parser')
+            magnet_link = soup.find('a', {'href': lambda x: x and x.startswith('magnet:')})['href']
+            title = soup.find('h3', {'class': 'panel-title'}).text.strip()
+            category = soup.find_all('a', {'href': lambda x: x and x.startswith('/?c')})[-1].text.strip()
+            file_list_section = soup.find('div', {'class': 'torrent-file-list'})
+            file_list = file_list_section.find_all('li')
+            file_names = ''.join([file.text.strip() for file in file_list])
+            if "Game" in category:
+                if ".exe" in file_names:
+                    download_torrents(title, magnet_link, torrentType="Game")
+                else:
+                    download_torrents(title, magnet_link, torrentType="iso")
+        except Exception as e:
+            warning(f"Fail to handle nyaasi link with error: {e}")
+            push_notify("Fail to handle nyaasi link")
+
 
 def get_title_ep(name):
     match = re.search(PATTERN, name)
@@ -287,7 +307,7 @@ def download_anime(url, batch=False, stop=False, move=False, force=False):
         download_torrents(anime_title, episode_link, move)
 
 
-def download_torrents(title, links, move=False):
+def download_torrents(title, links, move=False, torrentType="Anime"):
     if DRY_RUN:
         return
 
@@ -295,10 +315,19 @@ def download_torrents(title, links, move=False):
         links = [links]
 
     deluge = deluge_client.DelugeRPCClient(DELUGE_SERVER, 58846, "kotori", "123456")
-    deluge.connect()
+    try:
+        deluge.connect()
+    except:
+        warning(f"Failed to connect to deluge. Title: {title}")
+        push_notify(f"Failed to connect to deluge. Title: {title}")
+        return
+    
     torrents_dict = deluge.core.get_torrents_status({}, ["name"])
 
-    download_path = os.path.join(DOWNLOAD_FOLDER, title)
+    if torrentType=="Anime":
+        download_path = os.path.join(DOWNLOAD_FOLDER, torrentType, title)
+    else:
+        download_path = os.path.join(DOWNLOAD_FOLDER, torrentType)
     download_options = {
         "add_paused": False,
         "download_location": download_path,

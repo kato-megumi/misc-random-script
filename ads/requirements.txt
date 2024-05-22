@@ -4,3 +4,4 @@ feedparser
 requests
 pyyaml
 schedule
+beautifulsoup4
