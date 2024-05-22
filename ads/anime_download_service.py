@@ -243,6 +243,8 @@ def magnet_to_hash(magnet):
     if "xt" not in query_params:
         return None
     xt_value = query_params.get("xt", [])[0].split(":")[-1]
+    if len(xt_value) == 40:
+        return bytes(xt_value)
     return bytes(b32decode(xt_value).hex(), encoding="ascii")
 
 
