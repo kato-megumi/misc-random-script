@@ -18,6 +18,7 @@ import schedule
 import logging
 from logging import debug, info, warning
 from bs4 import BeautifulSoup
+import timeout_decorator
 
 API_KEY = "------------------------------"
 PUSHBULLET_API_URL = "https://api.pushbullet.com/v2/pushes"
@@ -26,7 +27,6 @@ PUSHBULLET_CHECK_INTERVAL = 5
 RSS_CHECK_INTERVAL = 10
 DOWNLOAD_FOLDER = "/media/pi/Drive/"
 DRY_RUN = "dryrun" in os.environ
-DEBUG = "debug" in os.environ
 PATTERN = r"\[(.*?)\] (.*?) - (\d+(?:\.\d+)?)v?(\d*) \(1080p\) \[.*?\]\.mkv"
 FALLBACK_PATTERN = r"\[.*?\]\s(.*?)\s-\s(.*?)\s\(.*?\)\s\[.*?\]\.mkv"
 BATCH_PATTERN = r"\[(.*?)\] (.*?) \((\d+(?:-\d+)?)\) \(1080p\) \[Batch\]"
@@ -62,6 +62,7 @@ class Pushbullet:
             ).strftime("%Y-%m-%d %H:%M:%S")
             return remain, total, until
 
+    @timeout_decorator.timeout(300)
     def check_for_push(self):
         current_time = time.time()
         failed = False
@@ -99,6 +100,7 @@ class Rss:
         self.seen_entry_ids = set()
         self.dry_run = dry_run
 
+    @timeout_decorator.timeout(300)
     def check_rss(self):
         try:
             feed = feedparser.parse(RSS_FEED_URL)
@@ -135,9 +137,12 @@ class Generic:
         self.load_list()
 
     def add_item(self, rss_link):
+        if any(rss_link == item.rss_link for item in self.list_item):
+            return
         self.list_item.append(GenericItem(rss_link))
         self.write_list()
 
+    @timeout_decorator.timeout(300)
     def check_rss(self):
         for item in self.list_item:
             try:
@@ -244,7 +249,7 @@ def magnet_to_hash(magnet):
         return None
     xt_value = query_params.get("xt", [])[0].split(":")[-1]
     if len(xt_value) == 40:
-        return bytes(xt_value)
+        return bytes(xt_value, encoding="ascii")
     return bytes(b32decode(xt_value).hex(), encoding="ascii")
 
 
@@ -281,11 +286,15 @@ def get_anime_info(url):
 def download_anime(url, batch=False, stop=False, move=False, force=False):
     debug(f"download_anime(): {url=}, {batch=} {stop=} {move=}")
     anime_title, magnet_links = get_anime_info(url)
+    if anime_title is None:
+        push_notify(f"Get NoneType title")
+        warning(f"Get NoneType title")
+        
     if anime_title in anime_list:
         if stop:
             del anime_list[anime_title]
             write_list()
-        if not force:
+        if not (force or move):
             return
     anime_list[anime_title] = {"link": url}
     write_list()
