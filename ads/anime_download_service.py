@@ -211,15 +211,12 @@ def push_handle(push):
             title = soup.find('h3', {'class': 'panel-title'}).text.strip()
             category = soup.find_all('a', {'href': lambda x: x and x.startswith('/?c')})[-1].text.strip()
             file_list_section = soup.find('div', {'class': 'torrent-file-list'})
-            file_list = file_list_section.find_all('li')
-            file_names = ''.join([file.text.strip() for file in file_list])
             if "Game" in category:
-                if ".exe" in file_names:
-                    download_torrents(title, magnet_link, torrentType="Game")
-                else:
-                    download_torrents(title, magnet_link, torrentType="iso")
+                # Determine the torrent type based on the presence of .exe files in the file list section
+                torrent_type = "Game" if file_list_section and any(".exe" in file.text for file in file_list_section.find_all('li')) else "iso"
+                download_torrents(title, magnet_link, torrentType=torrent_type)
         except Exception as e:
-            warning(f"Fail to handle nyaasi link with error: {e}")
+            warning(f"Fail to handle nyaasi link {link} with error: {e}")
             push_notify("Fail to handle nyaasi link")
 
 

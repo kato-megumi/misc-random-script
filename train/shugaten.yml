@@ -1,0 +1,84 @@
+name: shugaten_a+_ev234-fg2_aur
+model_type: default
+scale: 2
+num_gpu: 1
+use_amp: true
+bfloat16: true
+fast_matmul: true
+compile: false
+# manual_seed: 1337
+
+datasets:
+  train:
+    type: paired
+    dataroot_gt: R:\shugatenData\hr
+    dataroot_lq: R:\shugatenData\lr
+    io_backend:
+      type: disk
+
+    gt_size: 384
+    batch_size: 24
+    use_hflip: true
+    use_rot: true
+    augmentation: ['none', 'mixup', 'cutmix', 'resizemix', 'cutblur']
+    aug_prob: [0.2, 0.3, 0.2, 0.5, 0.75]
+    num_worker_per_gpu: 8
+    dataset_enlarge_ratio: 4
+  val:
+    name: val_1
+    type: single
+    dataroot_lq: R:\val\
+    io_backend:
+      type: disk
+        
+val:
+  val_freq: 5000
+  save_img: true
+
+path:
+  pretrain_network_g: 'E:\project\neosr\experiments\shugaten_a+_ev234-fg2\models\net_g_latest.pth'
+  param_key_g: params
+  strict_load_g: true
+  resume_state: ~
+
+network_g:
+  type: anime4k
+  block_depth: 17
+  stack_list: 9
+  num_feat: 12
+
+#print_network: true
+
+train:
+  optim_g:
+    type: adan
+    lr: !!float 32e-4
+    weight_decay: 0.02
+    weight_decouple: true
+    use_gc: true
+    adanorm: true
+    # betas: [0.9, 0.99]
+
+  scheduler:
+    type: cosineannealing
+    T_max: 20000
+    eta_min: !!float 6e-5
+    # type: multisteplr
+    # milestones: [20000000]
+    # gamma: 0.5
+
+  total_iter: 20000
+  warmup_iter: -1  # no warm up
+
+  # losses
+  pixel_opt:
+    type: L1Loss
+    loss_weight: 1.0
+  # dists_opt:
+  #  type: dists
+  #  loss_weight: 0.5
+
+logger:
+  print_freq: 100
+  save_checkpoint_freq: 2500
+  use_tb_logger: true

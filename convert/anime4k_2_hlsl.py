@@ -9,7 +9,7 @@ parser.add_argument("pth", help="Path to the input pth file")
 parser.add_argument("out", help="Path to the output folder")
 
 args = parser.parse_args()
-params = torch.load(args.pth)['params']
+params = torch.load(args.pth, weights_only=True)['params']
 out_hlsl = args.out if args.out[-5:]==".hlsl" else args.out+".hlsl"
 
 a = len([x for x in params.keys() if "conv_mid" in x]) / 2 + 1

@@ -14,6 +14,7 @@ from hashlib import sha256
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import shutil
 from misc import resize, ringing, FilterDict, Filter
+from time import time
 
 DRY_RUN = False
 MAX_TILE = 100 # unlimited
@@ -130,6 +131,10 @@ def cut(file, config):
         
     return count
 
+def hash_image(lr_img_path):
+    with Image.open(lr_img_path) as hr_img:
+        image_hash = sha256(hr_img.tobytes()).digest()
+    return lr_img_path, image_hash
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -158,8 +163,10 @@ if __name__ == "__main__":
         for index, item in enumerate(degrade):
             lr_folders = [input_folders[i] for i in (item['lr'] if 'lr' in item else default_lr)]
             hr_folders = [input_folders[i] for i in (item['hr'] if 'hr' in item else default_hr)]
-            threshold = item['threshold'] if 'threshold' in item else default_threshold
-            for lr_folder, hr_folder in zip(lr_folders, hr_folders):
+            thresholds = item['threshold'] if 'threshold' in item else default_threshold
+            if isinstance(thresholds, int):
+                thresholds = [thresholds]*len(lr_folders)
+            for lr_folder, hr_folder, threshold in zip(lr_folders, hr_folders, thresholds):
                 for root, dirs, files in os.walk(lr_folder):
                     config = {
                       "threshold": threshold,
@@ -177,25 +184,29 @@ if __name__ == "__main__":
                     
         executor.shutdown(wait=True)
     
+    start = time()
     counter = 0
     lr_path = Path(f"{output_folder}/lr")
     hr_path = Path(f"{output_folder}/hr")
     hashed_files = {}
-    for lr_img_path in sorted(lr_path.iterdir()):
-        if lr_img_path.suffix not in (".png", ".jpg", ".jpeg", ".webp"):
-            continue
-        with Image.open(lr_img_path) as hr_img:
-            image_hash = sha256(hr_img.tobytes()).digest()
-        for prev_file, prev_hash in hashed_files.items():
-            if prev_hash == image_hash:
-                hr_img_path = hr_path / lr_img_path.name
-                hr_img_path.unlink()
-                lr_img_path.unlink()
-                counter += 1
-                # print(f"Deleted duplicate image {lr_img_path.name}. Matching file: {prev_file.name}")
-                break
-        else:
+    unique_hash = set()
+    
+    with ProcessPoolExecutor() as executor:
+        futures = [executor.submit(hash_image, lr_img_path) for lr_img_path in sorted(lr_path.iterdir()) if lr_img_path.suffix in (".png", ".jpg", ".jpeg", ".webp")]
+        for future in as_completed(futures):
+            lr_img_path, image_hash = future.result()
             hashed_files[lr_img_path] = image_hash
-    print(f"Deleted {counter} duplicate images")
+        executor.shutdown(wait=True)
+        
+    for lr_img_path, image_hash in hashed_files.items():
+        if image_hash not in unique_hash:
+            unique_hash.add(image_hash)
+        else:
+            hr_img_path = hr_path / lr_img_path.name
+            hr_img_path.unlink()
+            lr_img_path.unlink()
+            counter += 1
+            # print(f"Deleted duplicate image {lr_img_path.name}. Matching file: {prev_file.name}")
+    print(f"Deleted {counter} duplicate images in {time()-start} seconds")
 
 

@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 from hashlib import sha256
 import imagehash 
-import sys
+from thefuzz import fuzz
 
 from PIL import Image
 
@@ -36,8 +36,8 @@ hashed_files = {}
 if args.exact:
     hash_types = [lambda x: sha256(x.tobytes()).digest()]
 else:
-    # hash_types = [imagehash.phash, imagehash.average_hash, imagehash.colorhash, imagehash.dhash]
-    hash_types = [imagehash.phash, imagehash.average_hash, imagehash.dhash]
+    hash_types = [imagehash.phash, imagehash.average_hash, imagehash.colorhash, imagehash.dhash]
+    # hash_types = [imagehash.phash, imagehash.average_hash, imagehash.dhash]
 
 for hash_type in hash_types:
     print("Hash type: {0}".format(hash_type))
@@ -53,6 +53,8 @@ for hash_type in hash_types:
                 else:
                     shutil.move(img_path, MOVED_PATH / img_path.name)
                 logging.info(f"Duplicate image {img_path.name}. Matching file: {prev_file.name}")
+                if (ratio := fuzz.ratio(img_path.stem, prev_file.stem)) < 80:
+                    logging.error(f"^^^^^^^^^ {ratio} ^^^^^^^^^")
                 break
         else:
             hashed_files[img_path] = image_hash

@@ -66,14 +66,14 @@ if __name__ == "__main__":
 
     device = torch.device("cuda")
     dummy_input = torch.randn(1, 3, 720, 1280).half().to(device)
-    params = torch.load(args.pth, map_location=device)['params']
+    params = torch.load(args.pth, map_location=device, weights_only=True)['params']
     
     a = len([x for x in params.keys() if "conv_mid" in x]) / 2 + 1
     c = len(params["conv_head.bias"])
     b = params["conv_tail.weight"].shape[1] / 2 / c
     
     model = anime4k(int(a), int(b), int(c)).half().to(device)
-    model.load_state_dict(torch.load(args.pth, map_location=device)['params'])
+    model.load_state_dict(torch.load(args.pth, map_location=device, weights_only=True)['params'])
     
     torch.onnx.export(
         model,
