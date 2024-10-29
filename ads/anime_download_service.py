@@ -30,7 +30,7 @@ DRY_RUN = "dryrun" in os.environ
 PATTERN = r"\[(.*?)\] (.*?) - (\d+(?:\.\d+)?)v?(\d*) \(1080p\) \[.*?\]\.mkv"
 FALLBACK_PATTERN = r"\[.*?\]\s(.*?)\s-\s(.*?)\s\(.*?\)\s\[.*?\]\.mkv"
 BATCH_PATTERN = r"\[(.*?)\] (.*?) \((\d+(?:-\d+)?)\) \(1080p\) \[Batch\]"
-GENERIC_PATTERN = r"(.*?) - (\d+(?:\.\d+)?)v?(\d*)"
+GENERIC_PATTERN = r"(.*?) - (\d+(?:\.\d+)?v?\d*)"
 DELUGE_SERVER = os.environ.get("DELUGE_SERVER", "127.0.0.1")
 
 log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ads.log")
@@ -192,29 +192,22 @@ def push_handle(push):
     debug(f"Receive {link}")
     if "https://subsplease.org/shows" in link:
         if "body" in push:
-            if "batch" in push["body"]:
-                download_anime(link, batch=True)
-                return
-            if "move" in push["body"]:
-                download_anime(link, move=True)
-                return
-            if "stop" in push["body"]:
-                download_anime(link, stop=True)
-                return
-            if "force" in push["body"]:
-                download_anime(link, force=True)
-                return
+            actions = {"batch": "batch", "move": "move", "stop": "stop", "force": "force"}
+            for key, value in actions.items():
+                if key in push["body"]:
+                    download_anime(link, **{value: True})
+                    return
         download_anime(link)
     elif "https://nyaa.si/?" in link or "https://sukebei.nyaa.si/?" in link:
         # Determine the torrent type based on body of the push
-        if "Game" in push["body"] or "game" in push["body"]:
-            torrent_type = "Game"
-        if "Manga" in push["body"] or "manga" in push["body"]:
-            torrent_type = "Manga"
-        elif "iso" in push["body"]:
-            torrent_type = "iso"
-        else:
-            torrent_type = "Anime"
+        torrent_type = "Anime" # Default to Anime
+        if "body" in push:
+            if "Game" in push["body"] or "game" in push["body"]:
+                torrent_type = "Game"
+            if "Manga" in push["body"] or "manga" in push["body"]:
+                torrent_type = "Manga"
+            elif "iso" in push["body"]:
+                torrent_type = "iso"
         # Convert the link to rss link
         generic.add_item(link if "page=rss" in link else link + "&page=rss", torrent_type)
     elif "https://nyaa.si/view/" in link or "https://sukebei.nyaa.si/view/" in link:
@@ -250,7 +243,7 @@ def get_title_ep(name):
 def get_generic_title_ep(name):
     match = re.search(GENERIC_PATTERN, name)
     if match:
-        return match.group(1), match.group(2) + match.group(3)
+        return match.group(1), match.group(2)
     else:
         return None, None
 
@@ -334,6 +327,8 @@ def download_torrents(title, links, move=False, torrentType="Anime"):
     if DRY_RUN:
         return
 
+    torrent_id = None
+
     if isinstance(links, str):
         links = [links]
 
@@ -366,7 +361,7 @@ def download_torrents(title, links, move=False, torrentType="Anime"):
                 if magnet_to_hash(link) not in torrents_dict:
                     _, ep = get_title_ep(unquote(link))
                     info(f"Started download {title} - Episode {ep}")
-                    deluge.core.add_torrent_magnet(link, download_options)
+                    torrent_id = deluge.core.add_torrent_magnet(link, download_options)
             else:
                 if link.endswith(".torrent"):
                     response = requests.get(link)
@@ -377,10 +372,11 @@ def download_torrents(title, links, move=False, torrentType="Anime"):
                         info(f"Started download {link}")
                         # TODO: pass torrent data to download_torrents()
                         try:
-                            deluge.core.add_torrent_file(link, encoded_content, download_options) 
+                            torrent_id = deluge.core.add_torrent_file(link, encoded_content, download_options) 
                         except:
                             info(f"Failed to download {link}, possibly because already downloaded")
     deluge.disconnect()
+    return torrent_id
 
 
 def push_notify(noti):
