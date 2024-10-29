@@ -123,10 +123,11 @@ class Rss:
 
 
 class GenericItem:
-    def __init__(self, rss_link, title="", type="Anime"):
+    def __init__(self, rss_link, title="", torrent_type="Anime"):
         self.rss_link = rss_link
         self.title = title
-        self.type = type
+        self.torrent_type = torrent_type
+        self.episode = []
 
 
 class Generic:
@@ -136,10 +137,10 @@ class Generic:
         self.seen_entry_ids = set()
         self.load_list()
 
-    def add_item(self, rss_link):
+    def add_item(self, rss_link, torrent_type="Anime"):
         if any(rss_link == item.rss_link for item in self.list_item):
             return
-        self.list_item.append(GenericItem(rss_link))
+        self.list_item.append(GenericItem(rss_link, torrent_type))
         self.write_list()
 
     @timeout_decorator.timeout(300)
@@ -155,10 +156,17 @@ class Generic:
                 if entry_id not in self.seen_entry_ids:
                     self.seen_entry_ids.add(entry_id)
                     name = remove_frill(entry.get("title", ""))
-                    title, _ = get_generic_title_ep(name)
-                    if item.title == "":
-                        item.title = title
-                        push_notify(f"Download: {title}")
+                    if item.torrent_type == "Anime":
+                        title, ep = get_generic_title_ep(name)
+                        if ep != None:
+                            if ep in item.episode:
+                                continue
+                            else:
+                                item.episode.append(ep)
+                                self.write_list()
+                        if item.title == "":
+                            item.title = title
+                            self.write_list()
                     if self.dry_run:
                         continue
                     link = entry.get("link", "")
@@ -198,10 +206,17 @@ def push_handle(push):
                 return
         download_anime(link)
     elif "https://nyaa.si/?" in link or "https://sukebei.nyaa.si/?" in link:
-        if "page=rss" in link:
-            generic.add_item(link)
+        # Determine the torrent type based on body of the push
+        if "Game" in push["body"] or "game" in push["body"]:
+            torrent_type = "Game"
+        if "Manga" in push["body"] or "manga" in push["body"]:
+            torrent_type = "Manga"
+        elif "iso" in push["body"]:
+            torrent_type = "iso"
         else:
-            generic.add_item(link + "&page=rss")
+            torrent_type = "Anime"
+        # Convert the link to rss link
+        generic.add_item(link if "page=rss" in link else link + "&page=rss", torrent_type)
     elif "https://nyaa.si/view/" in link or "https://sukebei.nyaa.si/view/" in link:
         try:
             response = requests.get(link)
@@ -391,14 +406,12 @@ def write_list():
 
 
 def remove_bracket(text):
-    pattern = r"\[.*?\]"
+    pattern = r"\[.*?\]|\(.*?\)"
     return re.sub(pattern, "", text)
 
 
 def remove_frill(text):
-    return os.path.splitext(
-        remove_bracket(text).replace("(1080p)", "").replace("(720p)", "")
-    )[0].strip()
+    return remove_bracket(text).replace(".mkv", "").replace(".mp4", "").strip()
 
 
 seen_entry_ids = set()
