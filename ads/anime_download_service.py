@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from urllib.parse import unquote, urlparse, parse_qs
+from urllib.parse import unquote, urlparse, parse_qs, urljoin
 from base64 import b32decode
 import deluge_client
 import feedparser
@@ -22,6 +22,7 @@ from logging import debug, info, warning
 from bs4 import BeautifulSoup
 import timeout_decorator
 
+# Constants
 API_KEY = "------------------------------"
 PUSHBULLET_API_URL = "https://api.pushbullet.com/v2/pushes"
 RSS_FEED_URL = "https://subsplease.org/rss/?r=1080"
@@ -35,7 +36,8 @@ BATCH_PATTERN = r"\[(.*?)\] (.*?) \((\d+(?:-\d+)?)\) \(1080p\) \[Batch\]"
 GENERIC_PATTERN = r"(.*?) - (\d+(?:\.\d+)?v?\d*)"
 DELUGE_SERVER = os.environ.get("DELUGE_SERVER", "127.0.0.1")
 
-added_torrent = []
+# Global variables
+torrents_dict = {}
 
 log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ads.log")
 LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()
@@ -171,11 +173,13 @@ class Generic:
                         if item.title == "":
                             item.title = title
                             self.write_list()
+                    else:
+                        title = name
                     if self.dry_run:
                         continue
                     link = entry.get("link", "")
                     info(f"New item in RSS. Prepare to download - Title: {name}")
-                    download_torrents(item.title, link)
+                    download_torrents(title, link)
 
     def load_list(self):
         if os.path.exists(generic_list_file_path):
@@ -219,14 +223,18 @@ def push_handle(push):
             response = requests.get(link)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'html.parser')
-            magnet_link = soup.find('a', {'href': lambda x: x and x.startswith('magnet:')})['href']
+            torrent_tag = soup.find('a', {'href': lambda x: x and x.endswith('.torrent')})
+            if torrent_tag:
+                torrent_link = urljoin(link, torrent_tag['href'])
+            else:
+                torrent_link = soup.find('a', {'href': lambda x: x and x.startswith('magnet:')})['href']
             title = soup.find('h3', {'class': 'panel-title'}).text.strip()
             category = soup.find_all('a', {'href': lambda x: x and x.startswith('/?c')})[-1].text.strip()
             file_list_section = soup.find('div', {'class': 'torrent-file-list'})
             if "Game" in category:
                 # Determine the torrent type based on the presence of .exe files in the file list section
                 torrent_type = "Game" if file_list_section and any(".exe" in file.text for file in file_list_section.find_all('li')) else "iso"
-                download_torrents(remove_frill(title), magnet_link, torrentType=torrent_type)
+                download_torrents(remove_frill(title), torrent_link, torrentType=torrent_type)
         except Exception as e:
             warning(f"Fail to handle nyaasi link {link} with error: {e}")
             push_notify("Fail to handle nyaasi link")
@@ -258,16 +266,26 @@ def magnet_to_hash(magnet):
         return None
     xt_value = query_params.get("xt", [])[0].split(":")[-1]
     if len(xt_value) == 40:
-        return bytes(xt_value, encoding="ascii")
-    return bytes(b32decode(xt_value).hex(), encoding="ascii")
+        return xt_value.encode('utf-8')
+    return b32decode(xt_value).hex().encode('utf-8')
 
 
-
-def get_torrent_hash(filecontent):
-    torrent_data = bencodepy.decode(filecontent)
-    info = bencodepy.encode(torrent_data[b'info'])
-    info_hash = hashlib.sha1(info).hexdigest()
-    return info_hash
+def links_to_hashs(links):
+    for link in links:
+        if link.startswith("magnet:"):
+            yield (magnet_to_hash(link), {"link": link})
+        elif link.endswith(".torrent"):
+            response = requests.get(link)
+            if response.status_code != 200:
+                warning(f"Failed to download the torrent file {link}")
+                continue
+            torrent_data = bencodepy.decode(response.content)
+            info = bencodepy.encode(torrent_data[b'info'])
+            info_hash = hashlib.sha1(info).hexdigest().encode('utf-8')
+            name = torrent_data[b'info'][b'name'].decode('utf-8')
+            content = base64.b64encode(response.content)
+            yield (info_hash,
+                {"link": link, "content": content, "name": name})
 
 
 def get_anime_info(url):
@@ -339,7 +357,13 @@ def download_torrents(title, links, move_only=False, move=False, torrentType="An
     if DRY_RUN:
         return
 
+    global torrents_dict
     torrent_id = []
+
+    hashs_dict = dict(links_to_hashs(links))
+    hashs_dict = {k: v for k, v in hashs_dict.items() if k not in torrents_dict}
+    if not hashs_dict:
+        return
 
     if isinstance(links, str):
         links = [links]
@@ -353,49 +377,40 @@ def download_torrents(title, links, move_only=False, move=False, torrentType="An
         return
     
     torrents_dict = deluge.core.get_torrents_status({}, ["name"])
+    hashs_dict = {k: v for k, v in hashs_dict.items() if v not in torrents_dict}
+    if not hashs_dict:
+        deluge.disconnect()
+        return
 
-    if torrentType=="Anime":
-        download_path = os.path.join(DOWNLOAD_FOLDER, torrentType, title)
-    else:
-        download_path = os.path.join(DOWNLOAD_FOLDER, torrentType)
+    download_path = os.path.join(
+        DOWNLOAD_FOLDER, torrentType, 
+        *(title,) if torrentType == "Anime" else ())
     download_options = {
         "add_paused": False,
         "download_location": download_path,
     }
-    hash_list = [magnet_to_hash(i) for i in links]
 
     if move:
-        deluge.core.move_storage(
-            [i for i in hash_list if i in torrents_dict], download_path
-        )
+        deluge.core.move_storage([i for i in hashs_dict], download_path)
 
     if not move_only:
-        for link in links:
-            if link.startswith("magnet:"):
-                if magnet_to_hash(link) not in torrents_dict:
-                    _, ep = get_title_ep(unquote(link))
-                    info(f"Started download {title} - Episode {ep}")
-                    torrent_id.append(deluge.core.add_torrent_magnet(link, download_options))
-            else:
-                if link.endswith(".torrent"):
-                    response = requests.get(link)
-                    if response.status_code != 200:
-                        warning(f"Failed to download the torrent file {link}")
-                    else:
-                        encoded_content = base64.b64encode(response.content)
-                        info_hash = get_torrent_hash(response.content)
-                        if info_hash in torrents_dict:
-                            continue
-                        info(f"Started download {link}")
-                        # TODO: pass torrent data to download_torrents()
-                        try:
-                            torrent_id.append(deluge.core.add_torrent_file(link, encoded_content, download_options))
-                        except:
-                            info(f"Failed to download {link}, possibly because already downloaded")
+        for info in hashs_dict.values():
+            link = info["link"]
+            if "content" not in info: # magnet link
+                _, ep = get_title_ep(unquote(link))
+                info(f"Started download {title} - Episode {ep}")
+                torrent_id.append(deluge.core.add_torrent_magnet(link, download_options))
+            else: # torrent file
+                name = info.get("name")
+                if name.isdigit():
+                    name = title
+                    download_options["name"] = title
+                info(f"Started download {name}")
+                try:
+                    torrent_id.append(deluge.core.add_torrent_file(link, info["content"], download_options))
+                except:
+                    info(f"Failed to download {name}, possibly because already downloaded")
     deluge.disconnect()
-
-    for id in torrent_id:
-        added_torrent.append((id, title))
     return torrent_id
 
 
@@ -423,7 +438,7 @@ def write_list():
 
 def remove_extension(file_name):
     name, ext = os.path.splitext(file_name)
-    if len(ext) in [4, 5]:  # including the dot, extensions will have length 4 or 5
+    if len(ext) in [4, 5] and ext[1:].isalnum() :  # including the dot, extensions will have length 4 or 5
         return name
     return file_name
 
@@ -435,34 +450,6 @@ def remove_bracket(text):
 
 def remove_frill(text):
     return remove_extension(remove_bracket(text)).strip()
-
-
-def rename_torrent():
-    global added_torrent
-    if added_torrent == []:
-        return
-    
-    deluge = deluge_client.DelugeRPCClient(DELUGE_SERVER, 58846, "kotori", "123456")
-    try:
-        deluge.connect()
-    except:
-        warning(f"Failed to connect to deluge")
-        push_notify(f"Failed to connect to deluge")
-        return
-    
-    new_added_torrent = []
-    for torrent_id, title in added_torrent:
-        torrent_info = deluge.core.get_torrent_status(torrent_id, ["files"])
-        if torrent_info[b'files']:
-            folder_name = torrent_info[b'files'][0][b'path'].decode('utf-8').split('/')[0]
-            if folder_name.isdigit():
-                info(f"Renaming {folder_name} to {title}")
-                deluge.core.rename_folder(torrent_id, folder_name, title)
-        else:
-            new_added_torrent.append((torrent_id, title))
-
-    added_torrent = new_added_torrent
-    deluge.disconnect()    
 
 
 seen_entry_ids = set()
@@ -497,7 +484,7 @@ generic = Generic(DRY_RUN)
 schedule.every(PUSHBULLET_CHECK_INTERVAL).seconds.do(pb.check_for_push)
 schedule.every(RSS_CHECK_INTERVAL).seconds.do(rss.check_rss)
 schedule.every(RSS_CHECK_INTERVAL).seconds.do(generic.check_rss)
-schedule.every(PUSHBULLET_CHECK_INTERVAL).seconds.do(rename_torrent)
+info("============== Service started ==============")
 
 while True:
     schedule.run_pending()
