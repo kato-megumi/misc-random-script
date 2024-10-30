@@ -206,7 +206,14 @@ def push_handle(push):
                     download_anime(link, **{value: True})
                     return
         download_anime(link)
-    elif "https://nyaa.si/?" in link or "https://sukebei.nyaa.si/?" in link:
+    elif any(path in link for path in ["https://nyaa.si/?", "https://sukebei.nyaa.si/?", "https://nyaa.si/user/", "https://sukebei.nyaa.si/user/"]):
+        if "page=rss" not in link:
+            response = requests.get(link)
+            if response.status_code != 200:
+                warning(f"Failed to fetch torrent page {link}")
+                return
+            soup = BeautifulSoup(response.content, 'html.parser')
+            link = urljoin(link, soup.find('a', {'href': lambda x: x and "page=rss" in x})['href'])
         # Determine the torrent type based on body of the push
         torrent_type = "iso" if "sukebei" in link else "Anime"
         if "body" in push:
@@ -216,8 +223,7 @@ def push_handle(push):
                 torrent_type = "Manga"
             elif "iso" in push["body"]:
                 torrent_type = "iso"
-        # Convert the link to rss link
-        generic.add_item(link if "page=rss" in link else link + "&page=rss", torrent_type)
+        generic.add_item(link, torrent_type)
     elif "https://nyaa.si/view/" in link or "https://sukebei.nyaa.si/view/" in link:
         try:
             response = requests.get(link)

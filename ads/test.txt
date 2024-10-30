@@ -1,0 +1,10 @@
+
+TODO:
+    Method to remove nyaa multi item
+31/10/2024
+New function - should test:
+    - nyaa single game DL - rename
+    - nyaa multi game DL - game dl, rename, (Can use to plan game DL)
+    - nyaa multi anime DL - no duplicate ep
+    - deduce action in start time (move, deluge connect)
+    - Test for degrade
