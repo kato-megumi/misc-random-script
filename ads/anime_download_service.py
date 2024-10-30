@@ -196,7 +196,7 @@ def push_handle(push):
     debug(f"Receive {link}")
     if "https://subsplease.org/shows" in link:
         if "body" in push:
-            actions = {"batch": "batch", "move": "move", "stop": "stop", "force": "force"}
+            actions = {"batch": "batch", "move": "move_only", "stop": "stop", "force": "force"}
             for key, value in actions.items():
                 if key in push["body"]:
                     download_anime(link, **{value: True})
@@ -300,8 +300,8 @@ def get_anime_info(url):
     return anime_title2, magnet_links
 
 
-def download_anime(url, batch=False, stop=False, move=False, force=False):
-    debug(f"download_anime(): {url=}, {batch=} {stop=} {move=}")
+def download_anime(url, batch=False, stop=False, move_only=False, force=False):
+    debug(f"download_anime(): {url=}, {batch=} {stop=} {move_only=}")
     anime_title, magnet_links = get_anime_info(url)
     if anime_title is None:
         push_notify(f"Get NoneType title")
@@ -311,12 +311,12 @@ def download_anime(url, batch=False, stop=False, move=False, force=False):
         if stop:
             del anime_list[anime_title]
             write_list()
-        if not (force or move):
+        if not (force or move_only):
             return
     anime_list[anime_title] = {"link": url}
     write_list()
 
-    if move:
+    if move_only:
         push_notify(f"Move anime: {anime_title}")
     else:
         push_notify(f"Download anime: {anime_title}")
@@ -330,12 +330,12 @@ def download_anime(url, batch=False, stop=False, move=False, force=False):
             episode_link.append(link)
 
     if batch:
-        download_torrents(anime_title, batch_link, move)
+        download_torrents(anime_title, batch_link, move_only=move_only, move=True)
     else:
-        download_torrents(anime_title, episode_link, move)
+        download_torrents(anime_title, episode_link, move_only=move_only, move=True)
 
 
-def download_torrents(title, links, move=False, torrentType="Anime"):
+def download_torrents(title, links, move_only=False, move=False, torrentType="Anime"):
     if DRY_RUN:
         return
 
@@ -364,10 +364,12 @@ def download_torrents(title, links, move=False, torrentType="Anime"):
     }
     hash_list = [magnet_to_hash(i) for i in links]
 
-    deluge.core.move_storage(
-        [i for i in hash_list if i in torrents_dict], download_path
-    )
-    if not move:
+    if move:
+        deluge.core.move_storage(
+            [i for i in hash_list if i in torrents_dict], download_path
+        )
+
+    if not move_only:
         for link in links:
             if link.startswith("magnet:"):
                 if magnet_to_hash(link) not in torrents_dict:
