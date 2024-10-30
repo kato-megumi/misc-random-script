@@ -195,6 +195,23 @@ class Generic:
 
 def push_handle(push):
     if "url" not in push:
+        if "body" not in push:
+            return
+        command, target, *args = push["body"].split()
+        if command == "ls" or command == "list":
+            if target == "gen" or target == "generic":
+                push_notify("\n".join([f"{index+1}. {parse_qs(urlparse(item.rss_link).query)['q'][0]}" 
+                                       for index, item in enumerate(generic.list_item)]))
+                return
+        if command == "del" or command == "delete":
+            if target == "gen" or target == "generic":
+                args = [int(i) for i in args if i.isdigit()]
+                for arg in args:
+                    del generic.list_item[arg-1]
+                generic.write_list()
+                push_notify("\n".join([f"{index+1}. {parse_qs(urlparse(item.rss_link).query)['q'][0]}" 
+                                       for index, item in enumerate(generic.list_item)]))
+                return
         return
     link = push["url"]
     debug(f"Receive {link}")
