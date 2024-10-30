@@ -1,4 +1,6 @@
 import base64
+import hashlib
+import bencodepy
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -260,6 +262,14 @@ def magnet_to_hash(magnet):
     return bytes(b32decode(xt_value).hex(), encoding="ascii")
 
 
+
+def get_torrent_hash(filecontent):
+    torrent_data = bencodepy.decode(filecontent)
+    info = bencodepy.encode(torrent_data[b'info'])
+    info_hash = hashlib.sha1(info).hexdigest()
+    return info_hash
+
+
 def get_anime_info(url):
     options = webdriver.FirefoxOptions()
     options.add_argument("--headless")
@@ -371,6 +381,9 @@ def download_torrents(title, links, move=False, torrentType="Anime"):
                         warning(f"Failed to download the torrent file {link}")
                     else:
                         encoded_content = base64.b64encode(response.content)
+                        info_hash = get_torrent_hash(response.content)
+                        if info_hash in torrents_dict:
+                            continue
                         info(f"Started download {link}")
                         # TODO: pass torrent data to download_torrents()
                         try:
