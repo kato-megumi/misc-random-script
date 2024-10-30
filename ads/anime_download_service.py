@@ -35,6 +35,7 @@ FALLBACK_PATTERN = r"\[.*?\]\s(.*?)\s-\s(.*?)\s\(.*?\)\s\[.*?\]\.mkv"
 BATCH_PATTERN = r"\[(.*?)\] (.*?) \((\d+(?:-\d+)?)\) \(1080p\) \[Batch\]"
 GENERIC_PATTERN = r"(.*?) - (\d+(?:\.\d+)?v?\d*)"
 DELUGE_SERVER = os.environ.get("DELUGE_SERVER", "127.0.0.1")
+SERVICE_NAME = "Anime Download Service"
 
 # Global variables
 torrents_dict = {}
@@ -90,9 +91,15 @@ class Pushbullet:
 
         if not failed and response.status_code == 200:
             pushes = response.json()["pushes"]
+            query_time = self.last_success
             self.last_success = current_time
             for push in pushes:
-                push_handle(push)
+                if push.get("title", "") != SERVICE_NAME and push["created"] >= query_time:
+                    created = datetime.datetime.fromtimestamp(push["created"]).strftime('%F %T.%f')[:-3]
+                    modified = datetime.datetime.fromtimestamp(push["modified"]).strftime('%F %T.%f')[:-3]
+                    query_time_fmt = datetime.datetime.fromtimestamp(query_time).strftime('%F %T.%f')[:-3]
+                    info(f"Pushbullet: Created: {created} Modified: {modified} Body: \"{push.get("body", "")}\" Url: \"{push.get("url", "")}\" Query time: {query_time_fmt}")
+                    push_handle(push)
         else:
             try:
                 warning(f"Status code {response.status_code}")
@@ -146,7 +153,7 @@ class Generic:
     def add_item(self, rss_link, torrent_type="Anime"):
         if any(rss_link == item.rss_link for item in self.list_item):
             return
-        self.list_item.append(GenericItem(rss_link, torrent_type))
+        self.list_item.append(GenericItem(rss_link, torrent_type=torrent_type))
         self.write_list()
 
     @timeout_decorator.timeout(300)
@@ -179,7 +186,7 @@ class Generic:
                         continue
                     link = entry.get("link", "")
                     info(f"New item in RSS. Prepare to download - Title: {name}")
-                    download_torrents(title, link)
+                    download_torrents(title, link, torrentType=item.torrent_type)
 
     def load_list(self):
         if os.path.exists(generic_list_file_path):
@@ -195,26 +202,30 @@ class Generic:
 
 def push_handle(push):
     if "url" not in push:
+        debug("Pushbullet handle command")
         if "body" not in push:
             return
-        command, target, *args = push["body"].split()
-        if command == "ls" or command == "list":
-            if target == "gen" or target == "generic":
-                push_notify("\n".join([f"{index+1}. {parse_qs(urlparse(item.rss_link).query)['q'][0]}" 
+        try:
+            command, target, *args = push["body"].split()
+        except:
+            return
+        if any(command == c for c in ["list", "ls", "l"]):
+            if any(target == c for c in ["gen", "generic", "g"]):
+                push_notify("\n".join([f"{index+1}. {parse_qs(urlparse(item.rss_link).query)['q'][0]} - {item.torrent_type} - {item.title}"
                                        for index, item in enumerate(generic.list_item)]))
                 return
-        if command == "del" or command == "delete":
+        if any(command == c for c in ["del", "delete", "rm", "remove", "d", "r"]):
             if target == "gen" or target == "generic":
                 args = [int(i) for i in args if i.isdigit()]
                 for arg in args:
                     del generic.list_item[arg-1]
                 generic.write_list()
-                push_notify("\n".join([f"{index+1}. {parse_qs(urlparse(item.rss_link).query)['q'][0]}" 
+                push_notify("\n".join([f"{index+1}. {parse_qs(urlparse(item.rss_link).query)['q'][0]}"
                                        for index, item in enumerate(generic.list_item)]))
                 return
         return
     link = push["url"]
-    debug(f"Receive {link}")
+    debug(f"Pushbullet Receive {link}")
     if "https://subsplease.org/shows" in link:
         if "body" in push:
             actions = {"batch": "batch", "move": "move_only", "stop": "stop", "force": "force"}
@@ -254,6 +265,7 @@ def push_handle(push):
             title = soup.find('h3', {'class': 'panel-title'}).text.strip()
             category = soup.find_all('a', {'href': lambda x: x and x.startswith('/?c')})[-1].text.strip()
             file_list_section = soup.find('div', {'class': 'torrent-file-list'})
+            debug(f"Handle nyaa.si/view - {title=} - {category=} - {torrent_link=}")
             if "Game" in category:
                 # Determine the torrent type based on the presence of .exe files in the file list section
                 torrent_type = "Game" if file_list_section and any(".exe" in file.text for file in file_list_section.find_all('li')) else "iso"
@@ -303,8 +315,8 @@ def links_to_hashs(links):
                 warning(f"Failed to download the torrent file {link}")
                 continue
             torrent_data = bencodepy.decode(response.content)
-            info = bencodepy.encode(torrent_data[b'info'])
-            info_hash = hashlib.sha1(info).hexdigest().encode('utf-8')
+            torrent_info = bencodepy.encode(torrent_data[b'info'])
+            info_hash = hashlib.sha1(torrent_info).hexdigest().encode('utf-8')
             name = torrent_data[b'info'][b'name'].decode('utf-8')
             content = base64.b64encode(response.content)
             yield (info_hash,
@@ -347,7 +359,7 @@ def download_anime(url, batch=False, stop=False, move_only=False, force=False):
     if anime_title is None:
         push_notify(f"Get NoneType title")
         warning(f"Get NoneType title")
-        
+
     if anime_title in anime_list:
         if stop:
             del anime_list[anime_title]
@@ -383,8 +395,13 @@ def download_torrents(title, links, move_only=False, move=False, torrentType="An
     global torrents_dict
     torrent_id = []
 
+    if not isinstance(links, list):
+        links = [links]
+
     hashs_dict = dict(links_to_hashs(links))
+    debug(f"download_torrents() {title=} - {hashs_dict=}")
     hashs_dict = {k: v for k, v in hashs_dict.items() if k not in torrents_dict}
+    debug(f"download_torrents() removed exist - {hashs_dict=}")
     if not hashs_dict:
         return
 
@@ -398,16 +415,22 @@ def download_torrents(title, links, move_only=False, move=False, torrentType="An
         warning(f"Failed to connect to deluge. Title: {title}")
         push_notify(f"Failed to connect to deluge. Title: {title}")
         return
-    
+
     torrents_dict = deluge.core.get_torrents_status({}, ["name"])
-    hashs_dict = {k: v for k, v in hashs_dict.items() if v not in torrents_dict}
+    hashs_dict = {k: v for k, v in hashs_dict.items() if k not in torrents_dict}
     if not hashs_dict:
         deluge.disconnect()
         return
 
-    download_path = os.path.join(
-        DOWNLOAD_FOLDER, torrentType, 
-        *(title,) if torrentType == "Anime" else ())
+    try:
+        download_path = os.path.join(
+            DOWNLOAD_FOLDER, torrentType,
+            *(title,) if torrentType == "Anime" else ())
+    except:
+        warning(f"Failed to create download path. {title=} {torrentType=}")
+        push_notify(f"Failed to create download path.")
+        deluge.disconnect()
+        return
     download_options = {
         "add_paused": False,
         "download_location": download_path,
@@ -417,20 +440,23 @@ def download_torrents(title, links, move_only=False, move=False, torrentType="An
         deluge.core.move_storage([i for i in hashs_dict], download_path)
 
     if not move_only:
-        for info in hashs_dict.values():
-            link = info["link"]
-            if "content" not in info: # magnet link
+        for torrent_info in hashs_dict.values():
+            link = torrent_info["link"]
+            if "content" not in torrent_info: # magnet link
                 _, ep = get_title_ep(unquote(link))
                 info(f"Started download {title} - Episode {ep}")
                 torrent_id.append(deluge.core.add_torrent_magnet(link, download_options))
             else: # torrent file
-                name = info.get("name")
+                name = torrent_info.get("name")
+                old_name = name
                 if name.isdigit():
                     name = title
                     download_options["name"] = title
                 info(f"Started download {name}")
                 try:
-                    torrent_id.append(deluge.core.add_torrent_file(link, info["content"], download_options))
+                    torrent_id.append(deluge.core.add_torrent_file(link, torrent_info["content"], download_options))
+                    if old_name.isdigit():
+                        deluge.core.rename_folder(torrent_id[-1], old_name, name)
                 except:
                     info(f"Failed to download {name}, possibly because already downloaded")
     deluge.disconnect()
@@ -439,7 +465,7 @@ def download_torrents(title, links, move_only=False, move=False, torrentType="An
 
 def push_notify(noti):
     debug(f"Notify - {noti}")
-    push_data = {"type": "note", "title": "Anime Download Service", "body": noti}
+    push_data = {"type": "note", "title": SERVICE_NAME, "body": noti}
 
     headers = {"Access-Token": API_KEY, "Content-Type": "application/json"}
     try:
@@ -467,7 +493,7 @@ def remove_extension(file_name):
 
 
 def remove_bracket(text):
-    pattern = r"\[.*?\]|\(.*?\)"
+    pattern = r"\[.*?\]|\(.*?\)|\│.*?\│|\（.*?\）"
     return re.sub(pattern, "", text)
 
 
