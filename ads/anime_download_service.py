@@ -33,6 +33,8 @@ BATCH_PATTERN = r"\[(.*?)\] (.*?) \((\d+(?:-\d+)?)\) \(1080p\) \[Batch\]"
 GENERIC_PATTERN = r"(.*?) - (\d+(?:\.\d+)?v?\d*)"
 DELUGE_SERVER = os.environ.get("DELUGE_SERVER", "127.0.0.1")
 
+added_torrent = []
+
 log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ads.log")
 LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()
 logging.basicConfig(
@@ -200,7 +202,7 @@ def push_handle(push):
         download_anime(link)
     elif "https://nyaa.si/?" in link or "https://sukebei.nyaa.si/?" in link:
         # Determine the torrent type based on body of the push
-        torrent_type = "Anime" # Default to Anime
+        torrent_type = "iso" if "sukebei" in link else "Anime"
         if "body" in push:
             if "Game" in push["body"] or "game" in push["body"]:
                 torrent_type = "Game"
@@ -222,7 +224,7 @@ def push_handle(push):
             if "Game" in category:
                 # Determine the torrent type based on the presence of .exe files in the file list section
                 torrent_type = "Game" if file_list_section and any(".exe" in file.text for file in file_list_section.find_all('li')) else "iso"
-                download_torrents(title, magnet_link, torrentType=torrent_type)
+                download_torrents(remove_frill(title), magnet_link, torrentType=torrent_type)
         except Exception as e:
             warning(f"Fail to handle nyaasi link {link} with error: {e}")
             push_notify("Fail to handle nyaasi link")
@@ -327,7 +329,7 @@ def download_torrents(title, links, move=False, torrentType="Anime"):
     if DRY_RUN:
         return
 
-    torrent_id = None
+    torrent_id = []
 
     if isinstance(links, str):
         links = [links]
@@ -361,7 +363,7 @@ def download_torrents(title, links, move=False, torrentType="Anime"):
                 if magnet_to_hash(link) not in torrents_dict:
                     _, ep = get_title_ep(unquote(link))
                     info(f"Started download {title} - Episode {ep}")
-                    torrent_id = deluge.core.add_torrent_magnet(link, download_options)
+                    torrent_id.append(deluge.core.add_torrent_magnet(link, download_options))
             else:
                 if link.endswith(".torrent"):
                     response = requests.get(link)
@@ -372,10 +374,13 @@ def download_torrents(title, links, move=False, torrentType="Anime"):
                         info(f"Started download {link}")
                         # TODO: pass torrent data to download_torrents()
                         try:
-                            torrent_id = deluge.core.add_torrent_file(link, encoded_content, download_options) 
+                            torrent_id.append(deluge.core.add_torrent_file(link, encoded_content, download_options))
                         except:
                             info(f"Failed to download {link}, possibly because already downloaded")
     deluge.disconnect()
+
+    for id in torrent_id:
+        added_torrent.append((id, title))
     return torrent_id
 
 
@@ -401,13 +406,48 @@ def write_list():
         yaml.dump(anime_list, anilist_file)
 
 
+def remove_extension(file_name):
+    name, ext = os.path.splitext(file_name)
+    if len(ext) in [4, 5]:  # including the dot, extensions will have length 4 or 5
+        return name
+    return file_name
+
+
 def remove_bracket(text):
     pattern = r"\[.*?\]|\(.*?\)"
     return re.sub(pattern, "", text)
 
 
 def remove_frill(text):
-    return remove_bracket(text).replace(".mkv", "").replace(".mp4", "").strip()
+    return remove_extension(remove_bracket(text)).strip()
+
+
+def rename_torrent():
+    global added_torrent
+    if added_torrent == []:
+        return
+    
+    deluge = deluge_client.DelugeRPCClient(DELUGE_SERVER, 58846, "kotori", "123456")
+    try:
+        deluge.connect()
+    except:
+        warning(f"Failed to connect to deluge")
+        push_notify(f"Failed to connect to deluge")
+        return
+    
+    new_added_torrent = []
+    for torrent_id, title in added_torrent:
+        torrent_info = deluge.core.get_torrent_status(torrent_id, ["files"])
+        if torrent_info[b'files']:
+            folder_name = torrent_info[b'files'][0][b'path'].decode('utf-8').split('/')[0]
+            if folder_name.isdigit():
+                info(f"Renaming {folder_name} to {title}")
+                deluge.core.rename_folder(torrent_id, folder_name, title)
+        else:
+            new_added_torrent.append((torrent_id, title))
+
+    added_torrent = new_added_torrent
+    deluge.disconnect()    
 
 
 seen_entry_ids = set()
@@ -442,6 +482,7 @@ generic = Generic(DRY_RUN)
 schedule.every(PUSHBULLET_CHECK_INTERVAL).seconds.do(pb.check_for_push)
 schedule.every(RSS_CHECK_INTERVAL).seconds.do(rss.check_rss)
 schedule.every(RSS_CHECK_INTERVAL).seconds.do(generic.check_rss)
+schedule.every(PUSHBULLET_CHECK_INTERVAL).seconds.do(rename_torrent)
 
 while True:
     schedule.run_pending()
