@@ -70,7 +70,7 @@ def cut(file, config):
     if hr_size != list(img_hr.shape[:2][::-1]):
         img_hr = resize(img_hr, hr_size, interpolation=FilterDict[action_hr])
     if hr_shift_matrix is not None:
-        img_hr = cv2.warpAffine(img_hr, hr_shift_matrix, (img_hr.shape[1], img_hr.shape[0]), flags=cv2.INTER_LINEAR)
+        img_hr = cv2.warpAffine(img_hr, hr_shift_matrix, (img_hr.shape[1], img_hr.shape[0]), flags=cv2.INTER_LANCZOS4)
 
     gray = cv2.cvtColor(lr_good_img, cv2.COLOR_BGR2GRAY)  # Converting BGR to gray
     laplacian = cv2.Laplacian(gray, cv2.CV_64F)

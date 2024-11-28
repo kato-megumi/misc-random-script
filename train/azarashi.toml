@@ -1,0 +1,127 @@
+
+name = "Azarashi_5"
+model_type = "image"
+scale = 2
+use_amp = true
+bfloat16 = true
+fast_matmul = true
+#compile = true
+#manual_seed = 1024
+
+[datasets.train]
+type = "paired"
+dataroot_gt = 'R:\data\hr'
+dataroot_lq = 'R:\data\lr'
+patch_size = 192
+batch_size = 24
+dataset_enlarge_ratio = 1
+#accumulate = 1
+#augmentation = [ "none", "mixup", "cutmix", "resizemix" ] # [ "cutblur" ]
+#aug_prob = [ 0.5, 0.1, 0.1, 0.1 ] # [ 0.7 ]
+
+[datasets.val]
+name = "val"
+type = "single"
+dataroot_lq = 'R:\val\'
+[val]
+val_freq = 5000
+#tile = 200
+#[val.metrics.psnr]
+#type = "calculate_psnr"
+#[val.metrics.ssim]
+#type = "calculate_ssim"
+#[val.metrics.dists]
+#type = "calculate_dists"
+#better = "lower"
+
+[path]
+pretrain_network_g = 'E:\project\neosr\experiments\Azarashi_4\models\net_g_20000.pth'
+#pretrain_network_d = 'experiments\pretrain_d.pth'
+
+[network_g]
+type = "anime4k"
+block_depth = 17
+stack_list = 9
+num_feat = 12
+
+[train]
+ema = 0.999
+grad_clip = false
+# sam = "fsam"
+#sam_init = 1000
+#eco = true
+#eco_init = 15000
+#wavelet_guided = true
+#wavelet_init = 80000
+#match_lq_colors = true
+
+# [train.scheduler] adan_sf don't need scheduler
+# type = "cosineannealing"
+# T_max = 50000
+# eta_min = 4e-5
+
+[train.optim_g]
+# type = "adan"
+type = "adan_sf"
+lr = 1e-2
+betas = [ 0.98, 0.92, 0.987 ]
+weight_decay = 0.02
+schedule_free = true
+warmup_steps = 1600
+
+
+#  losses
+# [train.mssim_opt]
+# type = "mssim_loss"
+# loss_weight = 1.0
+
+[train.pixel_opt]
+type = "L1Loss"
+loss_weight = 1.0
+
+# [train.perceptual_opt]
+# type = "vgg_perceptual_loss"
+# loss_weight = 1.0
+# criterion = "huber"
+#patchloss = true
+#ipk = true
+#patch_weight = 1.0
+
+# [train.gan_opt]
+# type = "gan_loss"
+# gan_type = "bce"
+# loss_weight = 0.3
+
+# [train.color_opt]
+# type = "color_loss"
+# loss_weight = 1.0
+# criterion = "huber"
+
+# [train.luma_opt]
+# type = "luma_loss"
+# loss_weight = 1.0
+# criterion = "huber"
+
+#[train.dists_opt]
+#type = "dists_loss"
+#loss_weight = 0.5
+
+#[train.ldl_opt]
+#type = "ldl_loss"
+#loss_weight = 1.0
+#criterion = "huber"
+
+#[train.ff_opt]
+#type = "ff_loss"
+#loss_weight = 1.0
+
+#[train.gw_opt]
+#type = "gw_loss"
+#loss_weight = 1.0
+
+[logger]
+total_iter = 50000
+save_checkpoint_freq = 2500
+use_tb_logger = true
+save_tb_img = true
+print_freq = 100

@@ -274,10 +274,10 @@ last_in_texture = [f"conv2d_{pass_no-block_stack+i}_{b}" for i in range(block_st
 in_tex = ", ".join(last_in_texture) 
 calculation = ''
 for i, tex in enumerate(last_in_texture):
-    calculation += f"\n\tfloat4 g{i} = {tex}.SampleLevel(sam, pos, 0);"
+    calculation += f"\n\tmin16float4 g{i} = {tex}.SampleLevel(sam, pos, 0);"
 calculation += "\n"
 for i, tex in enumerate(last_in_texture):
-    calculation += f"\n\tfloat4 ng{i} = max(-g{i}, 0);"
+    calculation += f"\n\tmin16float4 ng{i} = max(-g{i}, 0);"
 calculation += "\n"
 for i, tex in enumerate(last_in_texture):
     calculation += f"\n\tg{i} = max(g{i}, 0);"

@@ -1,0 +1,80 @@
+input_folder: 
+  - E:/Dataset/Azarashi/Amakano/lr
+  - E:/Dataset/Azarashi/AmakanoSS/lr
+  - E:/Dataset/Azarashi/AmakanoPlus/lr
+  - E:/Dataset/Azarashi/AmakanoSSPlus/lr
+  - E:/Dataset/Azarashi/Amakano/hr
+  - E:/Dataset/Azarashi/AmakanoSS/hr
+  - E:/Dataset/Azarashi/AmakanoPlus/hr
+  - E:/Dataset/Azarashi/AmakanoSSPlus/hr
+  - E:/Dataset/Azarashi/Amakano/hr_escalex2
+  - E:/Dataset/Azarashi/AmakanoSS/hr_escalex2
+  - E:/Dataset/Azarashi/AmakanoPlus/hr_escalex2
+  - E:/Dataset/Azarashi/AmakanoSSPlus/hr_escalex2
+
+
+# Num of file 106,220,77,80
+# hr,20:    1391, 2749, 1053, 830
+# hr,22:    1166, 2271, 885, 701
+# hr,24:    989, 1929, 745, 571
+# hr/2,22:  584, 1211, 405, 357
+default_lr: [0, 1, 2, 3]
+default_hr: [4, 5, 6, 7]
+output_folder: R:\data
+scale: 2
+tile_size: 192
+default_action_hr: BOX
+degrade:
+    # true
+    - action_lr: []
+      threshold: 20
+    # shift to blur
+    - action_lr:
+      - shift: [0.5, 0.5]
+      threshold: 26
+    - action_lr:
+      - shift: [-0.25, 0.5]
+      threshold: 26
+    - action_lr:
+      - shift: [-0.5, 0.25]
+      threshold: 26
+    # linear downscale hr to create thick, dark lines
+    - action_lr:
+        - LINEAR: 0.3125
+      threshold: 26
+      lr: [4, 5, 6, 7]
+      hr: [8, 9, 10, 11]
+    - action_lr:
+        - LINEAR: 1/2
+      threshold: 30
+      lr: [4, 5, 6, 7]
+      hr: [8, 9, 10, 11]
+    # cv2 downscale hr to learn small features
+    - action_lr:
+        - CV2_LANCZOS: 0.3125
+      threshold: 26
+      lr: [4, 5, 6, 7]
+      hr: [8, 9, 10, 11]
+    - action_lr:
+        - CV2_LANCZOS: 1/2
+      threshold: 30
+      lr: [4, 5, 6, 7]
+      hr: [8, 9, 10, 11]
+    # linear upscale lr to deblur upscaled image
+    - action_lr:
+        - LINEAR: 1.5
+      threshold: 29
+      hr: [8, 9, 10, 11]
+    - action_lr:
+        - LINEAR: 1.4375
+      threshold: 29
+      hr: [8, 9, 10, 11]
+    - action_lr:
+        - LINEAR: 1.25
+      threshold: 32
+      hr: [8, 9, 10, 11]
+    # linear downscale lr
+    - action_lr:
+        - LINEAR: 0.875
+      threshold: 20
+
