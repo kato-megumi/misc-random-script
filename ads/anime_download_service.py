@@ -417,10 +417,8 @@ def download_torrents(title, links, move_only=False, move=False, torrentType="An
         return
 
     torrents_dict = deluge.core.get_torrents_status({}, ["name"])
+    existed_hashs = [k for k in hashs_dict if k in torrents_dict]
     hashs_dict = {k: v for k, v in hashs_dict.items() if k not in torrents_dict}
-    if not hashs_dict:
-        deluge.disconnect()
-        return
 
     try:
         download_path = os.path.join(
@@ -436,8 +434,12 @@ def download_torrents(title, links, move_only=False, move=False, torrentType="An
         "download_location": download_path,
     }
 
-    if move:
-        deluge.core.move_storage([i for i in hashs_dict], download_path)
+    if move and existed_hashs:
+        deluge.core.move_storage(existed_hashs, download_path)
+
+    if not hashs_dict:
+        deluge.disconnect()
+        return
 
     if not move_only:
         for torrent_info in hashs_dict.values():
