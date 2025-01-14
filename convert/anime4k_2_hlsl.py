@@ -69,22 +69,22 @@ void Pass1(uint2 blockStart, uint3 threadId) {{
 	
 	uint i, j;
 
-	min16float3 src[4][4];
+	MF3 src[4][4];
 	[unroll]
 	for (i = 0; i <= 2; i += 2) {{
 		[unroll]
 		for (j = 0; j <= 2; j += 2) {{
 			float2 tpos = (gxy + uint2(i, j)) * inputPt;
-			const min16float4 sr = INPUT.GatherRed(sam, tpos);
-			const min16float4 sg = INPUT.GatherGreen(sam, tpos);
-			const min16float4 sb = INPUT.GatherBlue(sam, tpos);
+			const MF4 sr = INPUT.GatherRed(sam, tpos);
+			const MF4 sg = INPUT.GatherGreen(sam, tpos);
+			const MF4 sb = INPUT.GatherBlue(sam, tpos);
 
 			// w z
 			// x y
-			src[i][j] = min16float3(sr.w, sg.w, sb.w);
-			src[i][j + 1] = min16float3(sr.x, sg.x, sb.x);
-			src[i + 1][j] = min16float3(sr.z, sg.z, sb.z);
-			src[i + 1][j + 1] = min16float3(sr.y, sg.y, sb.y);
+			src[i][j] = MF3(sr.w, sg.w, sb.w);
+			src[i][j + 1] = MF3(sr.x, sg.x, sb.x);
+			src[i + 1][j] = MF3(sr.z, sg.z, sb.z);
+			src[i + 1][j + 1] = MF3(sr.y, sg.y, sb.y);
 		}}
 	}}
 
@@ -106,25 +106,25 @@ void Pass1(uint2 blockStart, uint3 threadId) {{
 '''
 
 get_pixel = '''
-	min16float4 a{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(-inputPt.x, -inputPt.y), 0);
-	min16float4 b{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(-inputPt.x, 0), 0);
-	min16float4 c{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(-inputPt.x, inputPt.y), 0);
-	min16float4 d{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(0, -inputPt.y), 0);
-	min16float4 e{b} = conv2d_{a}_{b}.SampleLevel(sam, pos, 0);
-	min16float4 f{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(0, inputPt.y), 0);
-	min16float4 g{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(inputPt.x, -inputPt.y), 0);
-	min16float4 h{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(inputPt.x, 0), 0);
-	min16float4 i{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(inputPt.x, inputPt.y), 0);
+	MF4 a{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(-inputPt.x, -inputPt.y), 0);
+	MF4 b{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(-inputPt.x, 0), 0);
+	MF4 c{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(-inputPt.x, inputPt.y), 0);
+	MF4 d{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(0, -inputPt.y), 0);
+	MF4 e{b} = conv2d_{a}_{b}.SampleLevel(sam, pos, 0);
+	MF4 f{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(0, inputPt.y), 0);
+	MF4 g{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(inputPt.x, -inputPt.y), 0);
+	MF4 h{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(inputPt.x, 0), 0);
+	MF4 i{b} = conv2d_{a}_{b}.SampleLevel(sam, pos + float2(inputPt.x, inputPt.y), 0);
  
- 	min16float4 na{b} = max(-a{b}, 0);
-	min16float4 nb{b} = max(-b{b}, 0);
-	min16float4 nc{b} = max(-c{b}, 0);
-	min16float4 nd{b} = max(-d{b}, 0);
-	min16float4 ne{b} = max(-e{b}, 0);
-	min16float4 nf{b} = max(-f{b}, 0);
-	min16float4 ng{b} = max(-g{b}, 0);
-	min16float4 nh{b} = max(-h{b}, 0);
-	min16float4 ni{b} = max(-i{b}, 0);
+ 	MF4 na{b} = max(-a{b}, 0);
+	MF4 nb{b} = max(-b{b}, 0);
+	MF4 nc{b} = max(-c{b}, 0);
+	MF4 nd{b} = max(-d{b}, 0);
+	MF4 ne{b} = max(-e{b}, 0);
+	MF4 nf{b} = max(-f{b}, 0);
+	MF4 ng{b} = max(-g{b}, 0);
+	MF4 nh{b} = max(-h{b}, 0);
+	MF4 ni{b} = max(-i{b}, 0);
 
 	a{b} = max(a{b}, 0);
 	b{b} = max(b{b}, 0);
@@ -137,35 +137,38 @@ get_pixel = '''
 	i{b} = max(i{b}, 0);
 '''
 
-def cal_weight(j, b, define=False, first=False, negative=False):
+def cal_weight(j, b, negative=False):
  	return f'''
-	{"min16float4 " if define else ""}target{j} {"" if first else "+"}= mul({'n' if negative else ""}a{b}, min16float4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-	target{j} += mul({'n' if negative else ""}b{b}, min16float4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-	target{j} += mul({'n' if negative else ""}c{b}, min16float4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-	target{j} += mul({'n' if negative else ""}d{b}, min16float4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-	target{j} += mul({'n' if negative else ""}e{b}, min16float4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-	target{j} += mul({'n' if negative else ""}f{b}, min16float4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-	target{j} += mul({'n' if negative else ""}g{b}, min16float4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-	target{j} += mul({'n' if negative else ""}h{b}, min16float4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-	target{j} += mul({'n' if negative else ""}i{b}, min16float4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
+	target{j} = MulAdd({'n' if negative else ""}a{b}, MF4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+	target{j} = MulAdd({'n' if negative else ""}b{b}, MF4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+	target{j} = MulAdd({'n' if negative else ""}c{b}, MF4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+	target{j} = MulAdd({'n' if negative else ""}d{b}, MF4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+	target{j} = MulAdd({'n' if negative else ""}e{b}, MF4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+	target{j} = MulAdd({'n' if negative else ""}f{b}, MF4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+	target{j} = MulAdd({'n' if negative else ""}g{b}, MF4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+	target{j} = MulAdd({'n' if negative else ""}h{b}, MF4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+	target{j} = MulAdd({'n' if negative else ""}i{b}, MF4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
 '''
 
 cal_bias = '''
-    target += min16float4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000);
+    {define}target = MF4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000);
+'''
+
+put_value = '''
 	conv2d_{a}_{b}[gxy] = target;
 '''
 
 cal_1st = '''
-			{define}target = mul(src[i - 1][j - 1], min16float3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-			target += mul(src[i - 1][j], min16float3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-			target += mul(src[i - 1][j + 1], min16float3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-			target += mul(src[i][j - 1], min16float3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-			target += mul(src[i][j], min16float3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-			target += mul(src[i][j + 1], min16float3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-			target += mul(src[i + 1][j - 1], min16float3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-			target += mul(src[i + 1][j], min16float3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-			target += mul(src[i + 1][j + 1], min16float3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));
-			target += min16float4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000);
+			{define}target = MF4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000);
+			target = MulAdd(src[i - 1][j - 1], MF3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+			target = MulAdd(src[i - 1][j], MF3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+			target = MulAdd(src[i - 1][j + 1], MF3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+			target = MulAdd(src[i][j - 1], MF3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+			target = MulAdd(src[i][j], MF3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+			target = MulAdd(src[i][j + 1], MF3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+			target = MulAdd(src[i + 1][j - 1], MF3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+			target = MulAdd(src[i + 1][j], MF3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
+			target = MulAdd(src[i + 1][j + 1], MF3x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target);
 			conv2d_1_{b}[destPos] = target;
 '''
 
@@ -193,31 +196,33 @@ void Pass{pass_no}(uint2 blockStart, uint3 threadId) {{
 	float2 outputPt = GetOutputPt();
 
 	pos -= 0.5f * outputPt;
-	OUTPUT[gxy] = min16float4(min16float3(target1.x, target2.x, target3.x) + INPUT.SampleLevel(sam1, pos, 0).rgb, 1);
+	OUTPUT[gxy] = MF4(MF3(target1.x, target2.x, target3.x) + INPUT.SampleLevel(sam1, pos, 0).rgb, 1);
 
 	++gxy.x;
 	pos.x += outputPt.x;
-	OUTPUT[gxy] = min16float4(min16float3(target1.y, target2.y, target3.y) + INPUT.SampleLevel(sam1, pos, 0).rgb, 1);
+	OUTPUT[gxy] = MF4(MF3(target1.y, target2.y, target3.y) + INPUT.SampleLevel(sam1, pos, 0).rgb, 1);
 
 	++gxy.y;
 	pos.y += outputPt.y;
-	OUTPUT[gxy] = min16float4(min16float3(target1.w, target2.w, target3.w) + INPUT.SampleLevel(sam1, pos, 0).rgb, 1);
+	OUTPUT[gxy] = MF4(MF3(target1.w, target2.w, target3.w) + INPUT.SampleLevel(sam1, pos, 0).rgb, 1);
 
 	--gxy.x;
 	pos.x -= outputPt.x;
-	OUTPUT[gxy] = min16float4(min16float3(target1.z, target2.z, target3.z) + INPUT.SampleLevel(sam1, pos, 0).rgb, 1);
+	OUTPUT[gxy] = MF4(MF3(target1.z, target2.z, target3.z) + INPUT.SampleLevel(sam1, pos, 0).rgb, 1);
 }}
 '''
 
-def lastpass_weight(j, b, define=False, first=False, negative=False):
+def lastpass_weight(j, b, negative=False):
  	return f'''
-	{"min16float4 " if define else ""}target{j} {"" if first else "+"}= mul({'n' if negative else ""}g{b}, min16float4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000));'''
+	target{j} = MulAdd({'n' if negative else ""}g{b}, MF4x4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000), target{j});'''
 ###############################################################
 
 hlsl = '''//!MAGPIE EFFECT
 //!VERSION 4
 //!SORT_NAME anime4k
+//!USE FP16, MulAdd
 
+#include "..\\StubDefs.hlsli"
 
 //!TEXTURE
 Texture2D INPUT;
@@ -246,7 +251,7 @@ SamplerState sam1;
 out_tex = ", ".join([f"conv2d_1_{b}" for b in range(num_text)]) 
 calculation = ''
 for b in range(num_text):
-    calculation += cal_1st.format(b=b, define="min16float4 " if b==0 else "")
+    calculation += cal_1st.format(b=b, define="MF4 " if b==0 else "")
 hlsl+=pass_1st.format(out_tex=out_tex, calculation=calculation)
 
 ### Middle pass
@@ -258,12 +263,12 @@ for pass_no in range(2, num_conv+1):
         calculation += get_pixel.format(a=pass_no-1, b=b)
 
     for i in range(num_text):
+        calculation += cal_bias.format(define="MF4 " if i==0 else "")
         for b in range(num_text):
-            calculation += cal_weight(j="", b=b, define=(i==0 and b==0), first=(b==0))
+            calculation += cal_weight(j="", b=b)
         for b in range(num_text):
             calculation += cal_weight(j="", b=b, negative=True)
-
-        calculation += cal_bias.format(a=pass_no, b=i)
+        calculation += put_value.format(a=pass_no, b=i)
 
     hlsl+= pass_define.format(pass_no=pass_no,in_tex=in_tex,out_tex=out_tex,calculation=calculation)
 
@@ -274,26 +279,27 @@ last_in_texture = [f"conv2d_{pass_no-block_stack+i}_{b}" for i in range(block_st
 in_tex = ", ".join(last_in_texture) 
 calculation = ''
 for i, tex in enumerate(last_in_texture):
-    calculation += f"\n\tmin16float4 g{i} = {tex}.SampleLevel(sam, pos, 0);"
+    calculation += f"\n\tMF4 g{i} = {tex}.SampleLevel(sam, pos, 0);"
 calculation += "\n"
 for i, tex in enumerate(last_in_texture):
-    calculation += f"\n\tmin16float4 ng{i} = max(-g{i}, 0);"
+    calculation += f"\n\tMF4 ng{i} = max(-g{i}, 0);"
 calculation += "\n"
 for i, tex in enumerate(last_in_texture):
     calculation += f"\n\tg{i} = max(g{i}, 0);"
 calculation += "\n"
 
 for i in range(3):
+	calculation += f'''
+  
+	MF4 target{i+1} = MF4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000);'''
 	for j in range(block_stack):
 		for k in range(num_text):
 			b = j * num_text + k
-			calculation += lastpass_weight(j=i+1, b=b, define=(b==0), first=(b==0))
+			calculation += lastpass_weight(j=i+1, b=b)
 		for k in range(num_text):
 			b = j * num_text + k
 			calculation += lastpass_weight(j=i+1, b=b, negative=True)
-	calculation += f'''         
-	target{i+1} += min16float4(0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000);
-'''
+
 hlsl+= last_pass.format(pass_no=pass_no,in_tex=in_tex,calculation=calculation)
 
 
@@ -302,6 +308,9 @@ def convert(weight, bias, data, doswap=False):
     swap = [0,2,1,3]
     out_chan, in_chan, width, height = weight.shape
     for to in range(math.ceil(out_chan/4)):
+        for o in range(min(4, out_chan)):
+            o = swap[o] if doswap else o
+            data.append(float(bias.data[to*4+o]))
         for ti in range(math.ceil(in_chan/4)):
             for w in range(width):
                 for h in range(height):
@@ -310,9 +319,6 @@ def convert(weight, bias, data, doswap=False):
                             o = swap[o] if doswap else o
                             # data.append(float(weight[to*4+o, ti*4+i, w, h]))
                             data.append(float(weight[to*4+o, ti*4+i, h, w]))
-        for o in range(min(4, out_chan)):
-            o = swap[o] if doswap else o
-            data.append(float(bias.data[to*4+o]))
 
 
 # model = model['params_ema']
