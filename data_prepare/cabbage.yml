@@ -1,0 +1,48 @@
+input_folder: 
+  - E:/Dataset/Shugaten/lr  #0
+  - E:/Dataset/Shugaten/hr  #1
+  - E:/Dataset/Amachoco2/lr #2
+  - E:/Dataset/Amachoco2/hr #3 
+  - E:/Dataset/Amachoco3/lr #4
+  - E:/Dataset/Amachoco3/hr #5
+  - E:/Dataset/Amachoco3/hr_single #       6
+  - E:/Dataset/Shugaten/2 # 900x1500       7
+  - E:/Dataset/Shugaten/0 # 3000x5000      8
+  - E:/Dataset/Shugaten/3 # 540x900        9
+  - E:/Dataset/Shugaten/1 # 1800x3000      10
+  - E:/Dataset/Shugaten/0_50 # 1500x2500   11
+  - E:/Dataset/Shugaten/2_15 #12
+  - E:/Dataset/Shugaten/0_15 #13
+  - E:/Dataset/Shugaten/2_30 #14
+  - E:/Dataset/Shugaten/0_30 #15
+  - E:/Dataset/Shugaten/2_45 #16
+  - E:/Dataset/Shugaten/0_45 #17
+output_folder: R:\CabbageData
+scale: 2
+tile_size: 192
+default_action_hr: BOX
+degrade:
+    - action_lr: []
+      threshold: [20, 12, 11]
+      lr: [0]
+      hr: [1]
+    - action_lr:
+      - CATROM: 1/2
+      threshold: [26, 16, 14, 14]
+      lr: [1]
+      hr: [1]
+    - action_lr:
+      - LINEAR: 1/4
+      threshold: [22, 12, 11, 11]
+      lr: [1]
+      hr: [1]
+    - action_lr:
+      - CV2_LINEAR: 1/3
+      threshold: [16, 12, 11, 11]
+      lr: [1]
+      hr: [1]
+    - action_lr: []
+      threshold: 15
+      lr: [7, 12, 14, 16]
+      hr: [8, 13, 15, 17]
+      action_hr: LANCZOS

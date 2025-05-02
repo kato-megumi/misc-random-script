@@ -1,0 +1,48 @@
+input_folder: 
+  - E:/Dataset/Isuki/lr
+  - E:/Dataset/YubisakiConnection/lr
+  - E:/Dataset/Aikoi/lr
+  - E:/Dataset/Koiama/lr
+  - E:/Dataset/Isuki/hr_dejpeg
+  - E:/Dataset/YubisakiConnection/hr_dejpeg
+  - E:/Dataset/Aikoi/hr_dejpeg
+  - E:/Dataset/Koiama/hr_dejpeg
+  - E:/Dataset/Isuki/lr_dejpeg
+  - E:/Dataset/YubisakiConnection/lr_dejpeg
+  - E:/Dataset/Aikoi/lr_dejpeg
+  - E:/Dataset/Koiama/lr_dejpeg
+
+output_folder: R:\Hook2
+scale: 2
+tile_size: 192
+default_action_hr: BOX
+degrade:
+    # - action_lr: []
+    #   threshold: 20
+    #   lr: [0, 1, 2, 3]
+    #   hr: [4, 5, 6, 7]
+    - action_lr:
+      - CATROM: 1/2
+      threshold: 20
+      lr: [8, 9, 10, 11]
+      hr: [4, 5, 6, 7]
+    - action_lr:
+      - LINEAR: 1/4
+      threshold: 20
+      lr: [4, 5, 6, 7]
+      hr: [4, 5, 6, 7]
+    # - action_lr:
+    #   - LINEAR: 1/4
+    #   threshold: [22, 12, 11, 11]
+    #   lr: [1]
+    #   hr: [1]
+    # - action_lr:
+    #   - CV2_LINEAR: 1/3
+    #   threshold: [16, 12, 11, 11]
+    #   lr: [1]
+    #   hr: [1]
+    # - action_lr: []
+    #   threshold: 15
+    #   lr: [7, 12, 14, 16]
+    #   hr: [8, 13, 15, 17]
+    #   action_hr: LANCZOS

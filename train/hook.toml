@@ -1,5 +1,5 @@
 
-name = "shugaten_15-5-8"
+name = "hook"
 model_type = "image"
 scale = 2
 use_amp = true
@@ -10,8 +10,8 @@ fast_matmul = true
 
 [datasets.train]
 type = "paired"
-dataroot_gt = 'R:\shugatenData\hr'
-dataroot_lq = 'R:\shugatenData\lr'
+dataroot_gt = 'R:\Hook\hr'
+dataroot_lq = 'R:\Hook\lr'
 patch_size = 192
 batch_size = 24
 dataset_enlarge_ratio = 5
@@ -35,13 +35,13 @@ val_freq = 5000
 #better = "lower"
 
 [path]
-# pretrain_network_g = 'E:\project\neosr\experiments\shugaten_ul\models\net_g_20000.pth'
+pretrain_network_g = 'E:\project\neosr\experiments\amakano2plus_14_14_8\models\net_g_latest.pth'
 #pretrain_network_d = 'experiments\pretrain_d.pth'
 
 [network_g]
 type = "anime4k"
-block_depth = 15
-stack_list = 5
+block_depth = 14
+stack_list = 7
 num_feat = 8
 
 [train]

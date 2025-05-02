@@ -1,30 +1,78 @@
 ﻿#Requires AutoHotkey v2.0
 #SingleInstance force
 
-MyMenu := Menu()
-MyMenu.Add("PC Resolution", RunPCResolution)
-MyMenu.Add("Mac Resolution", RunMacResolution)
-MyMenu.Add("Tablet Resolution", RunTabletResolution)
-MyMenu.Add()
-MyMenu.Add("GPU Train", RunGPUTrain)
-MyMenu.Add("GPU Limit", RunGPULimit)
-MyMenu.Add("GPU Full", RunGPUFull)
-MyMenu.Add()
-MyMenu.Add("CPU 99%", RunCPU99)
-MyMenu.Add("CPU 100%", RunCPU100)
+full_command_line := DllCall("GetCommandLine", "str")
 
-XButton1::MyMenu.Show()
+if not (A_IsAdmin or RegExMatch(full_command_line, " /restart(?!\S)"))
+{
+    try
+    {
+        if A_IsCompiled
+            Run '*RunAs "' A_ScriptFullPath '" /restart'
+        else
+            Run '*RunAs "' A_AhkPath '" /restart "' A_ScriptFullPath '"'
+    }
+}
+
+
++Backspace::Send("{Delete}")
+
+XButton2:: {
+    Send("{Alt down}{Tab}")
+    KeyWait("XButton2")
+    Send("{Alt up}")
+}
+
+
+*WheelLeft::  ; The * prevents any modifiers from affecting the hotkey
+{
+    global ctrlHeld
+    if (!ctrlHeld) {
+        ctrlHeld := true
+        SendInput("{Ctrl down}")   ; Hold Ctrl
+        SetTimer(ReleaseCtrl, -500)  ; Adjust timer as needed
+    }
+    return  ; Completely blocks WheelLeft from doing anything else
+}
+ReleaseCtrl() {
+    global ctrlHeld
+    ctrlHeld := false
+    SendInput("{Ctrl up}")  ; Release Ctrl
+}
+
+
+XButton1:: {
+    MyMenu := Menu()
+    MyMenu.Add("PC Resolution", RunPCResolution)
+    MyMenu.Add("Mac Resolution", RunMacResolution)
+    MyMenu.Add("Tablet Resolution", RunTabletResolution)
+    MyMenu.Add()
+    MyMenu.Add("GPU Train", RunGPUTrain)
+    MyMenu.Add("GPU Limit", RunGPULimit)
+    MyMenu.Add("GPU Full", RunGPUFull)
+    MyMenu.Add()
+    MyMenu.Add("CPU 99%", RunCPU99)
+    MyMenu.Add("CPU 100%", RunCPU100)
+    ; DllCall("SetProp", "Ptr", MyMenu.Handle, "Str", "Magpie.ToolWindow", "Uint", true)
+    MyMenu.Show()
+}
 
 RunPCResolution(*) {
     ChangeResolution(3840, 2160)
+    Sleep 3000
+    RegWrite 1, "REG_DWORD", "HKEY_CURRENT_USER\Control Panel\Desktop\PerMonitorSettings\GSM770670708_02_07E5_A4^EA8C1CDCC9F9DC2110FC52C382EE80CA", "DpiValue"
 }
 
 RunMacResolution(*) {
     ChangeResolution(3024, 1890)
+    Sleep 3000
+    RegWrite 2, "REG_DWORD", "HKEY_CURRENT_USER\Control Panel\Desktop\PerMonitorSettings\GSM770670708_02_07E5_A4^EA8C1CDCC9F9DC2110FC52C382EE80CA", "DpiValue"
 }
 
 RunTabletResolution(*) {
     ChangeResolution(2560, 1600)
+    Sleep 3000
+    RegWrite 1, "REG_DWORD", "HKEY_CURRENT_USER\Control Panel\Desktop\PerMonitorSettings\GSM770670708_02_07E5_A4^EA8C1CDCC9F9DC2110FC52C382EE80CA", "DpiValue"
 }
 
 RunGPULimit(*) {
