@@ -1,7 +1,8 @@
 //!MAGPIE EFFECT
 //!VERSION 4
 //!SORT_NAME anime4k
-//!USE FP16, MulAdd
+//!USE MulAdd
+//!CAPABILITY FP16
 
 #include "..\StubDefs.hlsli"
 

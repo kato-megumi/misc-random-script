@@ -195,7 +195,8 @@ void Pass{pass_no}(uint2 blockStart, uint3 threadId) {{
 hlsl = '''//!MAGPIE EFFECT
 //!VERSION 4
 //!SORT_NAME compact
-//!USE FP16, MulAdd
+//!USE MulAdd
+//!CAPABILITY FP16
 
 #include "..\\StubDefs.hlsli"
 
