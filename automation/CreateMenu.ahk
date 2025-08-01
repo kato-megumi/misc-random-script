@@ -2,6 +2,7 @@
 #SingleInstance force
 
 full_command_line := DllCall("GetCommandLine", "str")
+scrollDisabled := false
 
 if not (A_IsAdmin or RegExMatch(full_command_line, " /restart(?!\S)"))
 {
@@ -17,31 +18,60 @@ if not (A_IsAdmin or RegExMatch(full_command_line, " /restart(?!\S)"))
 
 +Backspace::Send("{Delete}")
 
+XButton1:: {
+    Send("{Ctrl down}")
+    KeyWait("XButton1")
+    Send("{Ctrl up}")
+}
+
+
 XButton2:: {
-    Send("{Alt down}{Tab}")
+    ; Send("{Alt down}{Tab}")
+    Send("{Alt down}")
     KeyWait("XButton2")
     Send("{Alt up}")
 }
 
+; XButton2::
+; {
+;     scrollDisabled := true
+;     Send("{Alt down}")
+; }
+; XButton2 Up::
+; {
+;     scrollDisabled := false
+;     Send("{Alt up}")
+; }
 
-*WheelLeft::  ; The * prevents any modifiers from affecting the hotkey
-{
-    global ctrlHeld
-    if (!ctrlHeld) {
-        ctrlHeld := true
-        SendInput("{Ctrl down}")   ; Hold Ctrl
-        SetTimer(ReleaseCtrl, -500)  ; Adjust timer as needed
-    }
-    return  ; Completely blocks WheelLeft from doing anything else
+; ~!WheelUp::
+; {
+;     if scrollDisabled
+;         return  ; Block scrolling
+;     else
+;         Send("{WheelUp}")  ; Allow normal behavior
+; }
+
+; ; Intercept WheelDown when scroll is disabled
+; ~!WheelDown::
+; {
+;     if scrollDisabled
+;         return  ; Block scrolling
+;     else
+;         Send("{WheelDown}")  ; Allow normal behavior
+; }
+
+!WheelRight:: {
+    WinGetPos(&x, &y, &w, &h, "A")
+    WinMove(x, y, 1920 + 26, 1080 + 71, "A")
 }
-ReleaseCtrl() {
-    global ctrlHeld
-    ctrlHeld := false
-    SendInput("{Ctrl up}")  ; Release Ctrl
-}
+; 1920x1080 -> 1894x1009
+; 1950x1080 -> 1824x1009
+; !WheelRight::Send("d")
 
 
-XButton1:: {
+!WheelLeft::Send("{Tab}")
+^WheelLeft::Send("Enter")
+^WheelRight:: {
     MyMenu := Menu()
     MyMenu.Add("PC Resolution", RunPCResolution)
     MyMenu.Add("Mac Resolution", RunMacResolution)
@@ -53,6 +83,11 @@ XButton1:: {
     MyMenu.Add()
     MyMenu.Add("CPU 99%", RunCPU99)
     MyMenu.Add("CPU 100%", RunCPU100)
+    MyMenu.Add()
+    MyMenu.Add("Limit", Limit)
+    MyMenu.Add("Full", Full)
+    MyMenu.Add()
+    MyMenu.Add("Mouse Trail", MouseTrail)
     ; DllCall("SetProp", "Ptr", MyMenu.Handle, "Str", "Magpie.ToolWindow", "Uint", true)
     MyMenu.Show()
 }
@@ -64,6 +99,7 @@ RunPCResolution(*) {
 }
 
 RunMacResolution(*) {
+    MouseTrail()
     ChangeResolution(3024, 1890)
     Sleep 3000
     RegWrite 2, "REG_DWORD", "HKEY_CURRENT_USER\Control Panel\Desktop\PerMonitorSettings\GSM770670708_02_07E5_A4^EA8C1CDCC9F9DC2110FC52C382EE80CA", "DpiValue"
@@ -106,3 +142,45 @@ ChangeResolution(Screen_Width := 3840, Screen_Height := 2160)
     NumPut("UInt", Screen_Height, Device_Mode, 112)
     Return DllCall( "ChangeDisplaySettingsA", "Ptr", Device_Mode, "UInt",0 )
 }
+
+Limit(*) {
+    RunCPU99()
+    RunGPULimit()
+}
+
+Full(*) {
+    RunCPU100()
+    RunGPUFull()
+}
+
+MouseTrail(*) {
+    SetPointerTrail(0)
+    Sleep 200
+    SetPointerTrail(2)
+}
+
+SetPointerTrail(length) {
+    ; Define necessary Windows API constants
+    static SPI_SETMOUSETRAILS    := 0x005D
+    static SPIF_UPDATEINIFILE    := 0x01
+    static SPIF_SENDWININICHANGE := 0x02
+
+    ; Call the SystemParametersInfoW function from user32.dll
+    DllCall(
+        "SystemParametersInfoW",                ; Function and DLL
+        "UInt", SPI_SETMOUSETRAILS,             ; Action: Set Mouse Trails
+        "UInt", length,                         ; Parameter: Trail length (0 to disable)
+        "Ptr", 0,                               ; Parameter: Not used for this action
+        "UInt", SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE ; Flags: Update system files and notify apps
+    )
+}
+
+
+; ; Auto-click space and 1 when Caps Lock is on
+; SetTimer(CheckCapsLock, 100)
+
+; CheckCapsLock() {
+;     if GetKeyState("CapsLock", "T") {
+;         Send("{Space}1")
+;     }
+; }
