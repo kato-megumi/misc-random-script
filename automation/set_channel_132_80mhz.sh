@@ -5,7 +5,7 @@ uci batch <<EOF
 set wireless.radio1.country='PA'
 set wireless.radio1.channel='132'
 set wireless.radio1.htmode='HE80'
-set wireless.radio1.txpower = '27'
+set wireless.radio1.txpower='27'
 EOF
 
 # Commit changes and reload Wi-Fi
